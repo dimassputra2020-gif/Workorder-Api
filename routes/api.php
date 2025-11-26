@@ -87,17 +87,18 @@ Route::get('/workorder/permissions', function () {
     ]
  ]);
 
-Route::middleware(['check.external.token'])->group(function () {
+
 Route::post('/workorder/permissions/set', function (Request $request) {
 
     $externalUser = $request->attributes->get('external_user');
     
     if (!$externalUser) {
-        return response()->json([
-            'success' => false,
-            'message' => 'External user tidak valid.'
-        ], 401);
-    }
+    return response()->json([
+        'success' => false,
+        'message' => 'Token external tidak valid'
+    ], 401);
+}
+
 
     $request->validate([
         'npp' => 'required|string',
@@ -115,7 +116,6 @@ Route::post('/workorder/permissions/set', function (Request $request) {
         "npp" => $request->npp,
         "permissions" => $request->permissions
     ]);
-});
 });
 
 Route::middleware(['check.external.token'])->group(function () {
