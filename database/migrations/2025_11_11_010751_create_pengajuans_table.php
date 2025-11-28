@@ -10,8 +10,6 @@ return new class extends Migration
     {
        Schema::create('pengajuans', function (Blueprint $table) {
     $table->id();
-    $table->integer('user_id')->nullable(); // bisa kosong
-    $table->string('external_user_token')->nullable();
     $table->string('name_pelapor')->nullable();
     $table->string('npp_pelapor')->nullable();
     $table->string('mengetahui_name')->nullable();
