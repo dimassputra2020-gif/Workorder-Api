@@ -2,14 +2,16 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Auth\SatkerController;
-use App\Http\Controllers\Auth\MasterJenisPekerjaanController;
-use App\Http\Controllers\Auth\MasterStatusController;
-use App\Http\Controllers\Auth\PengajuanController;
+use App\Http\Controllers\MasterJenisPekerjaanController;
+use App\Http\Controllers\MasterStatusController;
+use App\Http\Controllers\PengajuanController;
 use App\Http\Controllers\HalController;
-use App\Http\Controllers\Auth\SpkController;
-use App\Http\Controllers\Auth\TrackingController;
+use App\Http\Controllers\SpkController;
+use App\Http\Controllers\SatkerController;
+use App\Http\Controllers\TrackingController;
 use App\Helpers\PermissionStore;
+use App\Http\Controllers\PermissionController;
+
 Route::get('/satker', [SatkerController::class, 'getSatker']); 
 Route::get('/jabsatker', [SatkerController::class, 'getJabSatker']);
 Route::get('/satker_name', [SatkerController::class, 'getsatkername']);
@@ -25,7 +27,8 @@ Route::middleware(['check.external.token'])->group(function () {
     Route::get('/user/ttd/{npp}', [PengajuanController::class,  'getMyTTD']);
     Route::get('/pengajuan/rferensi/surat', [PengajuanController::class, 'listNoSurat']); 
     Route::post('/user/create/ttd', [PengajuanController::class, 'create']);
-    Route::delete('/user/delete/ttd', [PengajuanController::class, 'delete']);
+    Route::delete('/user/delete/ttd/{url}', [PengajuanController::class, 'deleteTtd'])
+    ->where('url', '.*');
 
                //menampilkan data pengajuan yg rilet//
     Route::get('/pengajuan/pelapor/{npp}', [PengajuanController::class, 'getByNpp']);
@@ -88,46 +91,12 @@ Route::get('/workorder/permissions', function () {
  ]);
 
 
-Route::post('/workorder/permissions/set', function (Request $request) {
-
-    $externalUser = $request->attributes->get('external_user');
-    
-    if (!$externalUser) {
-    return response()->json([
-        'success' => false,
-        'message' => 'Token external tidak valid'
-    ], 401);
-}
-
-
-    $request->validate([
-        'npp' => 'required|string',
-        'permissions' => 'required|array'
-    ]);
-
-    PermissionStore::setPermissions(
-        $request->npp,
-        $request->permissions
-    );
-
-    return response()->json([
-        "success" => true,
-        "message" => "Permissions updated",
-        "npp" => $request->npp,
-        "permissions" => $request->permissions
-    ]);
 });
-
 Route::middleware(['check.external.token'])->group(function () {
-Route::get('/workorder/permissions/{npp}', function ($npp) {
-    return response()->json([
-        "success" => true,
-        "npp" => $npp,
-        "permissions" => PermissionStore::getPermissionsFor($npp)
-    ]);
-});
-});
+    Route::post('/workorder/permissions/set', 
+        [PermissionController::class, 'setPermissions']);
 
+    Route::get('/workorder/permissions/{npp}', 
+        [PermissionController::class, 'getPermissions']);
 });
-
 
