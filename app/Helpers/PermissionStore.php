@@ -6,25 +6,39 @@ use Illuminate\Support\Facades\Storage;
 
 class PermissionStore
 {
-    private static $file = 'permissions.json';
+    private static $path;
 
-    // Get JSON file content
+    private static function getPath()
+    {
+        if (!self::$path) {
+            self::$path = __DIR__ . '/../../storage/app/permissions.json';
+        }
+        return self::$path;
+    }
+
     public static function load()
     {
-        if (!Storage::exists(self::$file)) {
-            Storage::put(self::$file, json_encode([], JSON_PRETTY_PRINT));
+        $path = self::getPath();
+        
+        if (!file_exists($path)) {
+            file_put_contents($path, json_encode([]));
+            return [];
         }
 
-        return json_decode(Storage::get(self::$file), true);
+        $content = file_get_contents($path);
+        $data = json_decode($content, true);
+        
+        return is_array($data) ? $data : [];
     }
 
-    // Save JSON file content
     public static function save($data)
     {
-        Storage::put(self::$file, json_encode($data, JSON_PRETTY_PRINT));
+        $path = self::getPath();
+        $json_data = json_encode($data, JSON_PRETTY_PRINT);
+        
+        file_put_contents($path, $json_data); 
     }
 
-    // Set permissions for NPP
     public static function setPermissions($npp, $permissions)
     {
         $data = self::load();
@@ -32,10 +46,10 @@ class PermissionStore
         self::save($data);
     }
 
-    // Get permissions for NPP
     public static function getPermissionsFor($npp)
     {
         $data = self::load();
         return $data[$npp] ?? [];
     }
 }
+
