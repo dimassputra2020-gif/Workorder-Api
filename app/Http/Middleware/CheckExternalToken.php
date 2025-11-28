@@ -20,7 +20,7 @@ class CheckExternalToken
             ], 401);
         }
 
-        $baseUrl = 'https://gateway.pdamkotasmg.co.id/api-gw-balanced/portal-pegawai';
+        $baseUrl = 'https://gateway.pdamkotasmg.co.id/api-gw/portal-pegawai';
 
         $response = Http::withHeaders([
             'Authorization' => $token,
