@@ -10,7 +10,7 @@ class Pengajuan extends Model
     use HasFactory;
 
     protected $fillable = [
-        'hal_id',
+        'hal',
         'kepada',
         'satker',
         'kode_barang',
