@@ -39,22 +39,25 @@ class PermissionController extends Controller
 
     
     public function getPermissions(Request $request, $npp)
-    {
-        $externalUser = $request->attributes->get('external_user');
+{
+    $externalUser = $request->attributes->get('external_user');
 
-        if (!$externalUser) {
-            return response()->json([
-                "success" => false,
-                "message" => "User eksternal tidak valid"
-            ], 401);
-        }
-
-        $permissions = PermissionStore::getPermissionsFor($npp);
-
+    if (!$externalUser) {
         return response()->json([
-            "success" => true,
-            "npp" => $npp,
-            "permissions" => $permissions
-        ]);
+            "status" => 401,
+            "message" => "User eksternal tidak valid",
+            "data" => null
+        ], 401);
     }
+
+    $permissions = PermissionStore::getPermissionsFor($npp);
+
+    return response()->json([
+        "status" => 200,
+        "message" => "OK",
+        "data" => [
+            "permissions" => $permissions
+        ]
+    ]);
+}
 }
