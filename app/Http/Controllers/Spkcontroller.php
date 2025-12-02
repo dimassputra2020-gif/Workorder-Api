@@ -232,7 +232,7 @@ class SpkController extends Controller
             }
 
             $request->validate([
-                'status' => 'nullable|string|in:pending,proses,selesai',
+                'status' => 'nullable|string|in:Pending,Proses,Selesai',
                 'jenis_pekerjaan' => 'nullable|string',
                 'kode_barang' => 'nullable|string',
                 'uraian_pekerjaan' => 'nullable|string',
