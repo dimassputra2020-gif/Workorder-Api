@@ -29,7 +29,8 @@ class Pengajuan extends Model
         'mengetahui_tlp',
         'ttd_pelapor',
         'ttd_mengetahui',
-        'no_referensi'
+        'no_referensi',
+        'catatan_status'
     ];
 
     
