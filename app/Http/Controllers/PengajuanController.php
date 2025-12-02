@@ -37,6 +37,17 @@ class PengajuanController extends Controller
         return true;
     }
 
+    private function extractPath($url)
+{
+    if (!$url) return null;
+
+    $parsed = parse_url($url);
+    $path = $parsed['path'] ?? $url;
+
+    return ltrim($path, '/');
+}
+
+
 
     public function store(Request $request)
     {
@@ -202,48 +213,61 @@ class PengajuanController extends Controller
 
 
     //update status\\ 
-    public function updateStatus(Request $request, $uuid)
-    {
-        try {
-            $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.approval');
-            if ($cek !== true) return $cek;
+   public function updateStatus(Request $request, $uuid)
+{
+    try {
+        $externalUser = $request->attributes->get('external_user');
+        $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.approval');
+        if ($cek !== true) return $cek;
 
-            if (!$externalUser) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Data user eksternal tidak ditemukan. Pastikan token valid.'
-                ], 401);
-            }
+        if (!$externalUser) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data user eksternal tidak ditemukan.'
+            ], 401);
+        }
 
-            // VALIDASI: TTD wajib upload
-            $request->validate([
-                'status' => 'required|in:pending,approved,rejected',
-                'ttd_mengetahui' => 'required|string', // WAJIB
-            ]);
+        $rules = [
+            'status' => 'required|in:pending,approved,rejected',
+            'ttd_mengetahui' => 'required|string',
+        ];
 
-            $pengajuans = Pengajuan::where('uuid', $uuid)->first();
+        if ($request->status === 'rejected') {
+            $rules['catatan_status'] = 'required|string|min:3';
+        }
 
-            if (!$pengajuans) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Data pengajuan tidak ditemukan',
-                ], 404);
-            }
+        $request->validate($rules);
 
-            if (
-                ($pengajuans->is_deleted ?? 0) == 1 ||
-                ($pengajuans->deleted ?? 0) == 1 ||
-                ($pengajuans->is_delete ?? 0) == 1
-            ) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Pengajuan ini sudah dihapus, tidak dapat diperbarui.',
-                ], 400);
-            }
+        $pengajuans = Pengajuan::where('uuid', $uuid)->first();
+        if (!$pengajuans) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data pengajuan tidak ditemukan.'
+            ], 404);
+        }
 
+        if (
+            ($pengajuans->is_deleted ?? 0) == 1 ||
+            ($pengajuans->deleted ?? 0) == 1 ||
+            ($pengajuans->is_delete ?? 0) == 1
+        ) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pengajuan sudah dihapus, tidak dapat diperbarui.'
+            ], 400);
+        }
 
-            $pengajuans->update([
+        $finalTtd = $this->extractPath($request->ttd_mengetahui);
+
+        $pengajuans->update([
+            'status'          => $request->status,
+            'catatan_status'  => $request->status === 'rejected'
+                                    ? $request->catatan_status
+                                    : null,
+            'ttd_mengetahui'  => $finalTtd,
+        ]);
+
+          $pengajuans->update([
                 'status' => $request->status,
             ]);
 
@@ -251,39 +275,24 @@ class PengajuanController extends Controller
             $originalMengetahuiNpp  = $pengajuans->mengetahui_npp;
             $originalMengetahuiTlp  = $pengajuans->mengetahui_tlp;
 
-            $normalizeUrl = function ($url) {
-                if (!$url) return null;
-                $cleaned = str_replace(['\\', '//'], ['/', '/'], $url);
-
-                if (Str::startsWith($cleaned, 'http:/') && !Str::startsWith($cleaned, 'http://')) {
-                    $cleaned = str_replace('http:/', 'http://', $cleaned);
-                }
-                if (Str::startsWith($cleaned, 'https:/') && !Str::startsWith($cleaned, 'https://')) {
-                    $cleaned = str_replace('https:/', 'https://', $cleaned);
-                }
-
-                return $cleaned;
-            };
-
-            $finalTtdMengetahui = $normalizeUrl($request->ttd_mengetahui);
-
+            
             $pengajuans->update([
                 'mengetahui_name' => $originalMengetahuiName,
                 'mengetahui_npp'  => $originalMengetahuiNpp,
                 'mengetahui_tlp'  => $originalMengetahuiTlp,
-                'ttd_mengetahui'  => $finalTtdMengetahui,
             ]);
 
-            $spk = Spk::where('uuid_pengajuan', $uuid)->first();
-            if ($request->status == 'approved' && !$spk) {
-                $spk = Spk::create([
-                    'uuid_pengajuan' => $uuid,
-                    'no_surat'       => $pengajuans->no_surat,
-                    'tanggal'        => now(),
-                    'no_referensi'   => $pengajuans->no_referensi,
-                    'status'         => 'draft',
-                ]);
-            }
+
+        $spk = Spk::where('uuid_pengajuan', $uuid)->first();
+        if ($request->status == 'approved' && !$spk) {
+            $spk = Spk::create([
+                'uuid_pengajuan' => $uuid,
+                'no_surat'       => $pengajuans->no_surat,
+                'tanggal'        => now(),
+                'no_referensi'   => $pengajuans->no_referensi,
+                'status'         => 'draft',
+            ]);
+        }
 
             $noReferensi = $spk->no_referensi ?? null;
             $pengajuans->load('masterhal');
@@ -345,88 +354,85 @@ class PengajuanController extends Controller
     }
 
     //edit pengajuan\\
-    public function edit(Request $request, $uuid)
-    {
-        try {
-            $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.edit');
-            if ($cek !== true) return $cek;
+   public function edit(Request $request, $uuid)
+{
+    try {
+        $externalUser = $request->attributes->get('external_user');
+        $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.edit');
+        if ($cek !== true) return $cek;
 
-            $pengajuan = Pengajuan::where('uuid', $uuid)->first();
+        $pengajuan = Pengajuan::where('uuid', $uuid)->first();
 
-            if (!$pengajuan) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Data pengajuan tidak ditemukan',
-                ], 404);
-            }
-
-
-            $request->validate([
-                'hal_id' => 'sometimes|exists:masterhal,id',
-                'kepada' => 'nullable|string',
-                'satker' => 'nullable|string',
-                'kode_barang' => 'nullable|string',
-                'keterangan' => 'nullable|string',
-                'file_paths' => 'required|string|min:1',
-            ]);
-
-
-            $normalizeUrl = function ($url) {
-                if (!$url) return null;
-
-                $cleaned = str_replace('\\', '/', $url);
-                $cleaned = str_replace('//', '/', $cleaned);
-
-                if (Str::startsWith($cleaned, 'http:/') && !Str::startsWith($cleaned, 'http://')) {
-                    $cleaned = str_replace('http:/', 'http://', $cleaned);
-                }
-                if (Str::startsWith($cleaned, 'https:/') && !Str::startsWith($cleaned, 'https://')) {
-                    $cleaned = str_replace('https:/', 'https://', $cleaned);
-                }
-                return $cleaned;
-            };
-
-            $normalizeFilePaths = function ($filePaths) use ($normalizeUrl) {
-                if (is_array($filePaths)) {
-                    return array_map(fn($f) => $normalizeUrl($f), $filePaths);
-                }
-
-                if (is_string($filePaths)) {
-                    $cleanString = str_replace(['[', ']', '"'], '', $filePaths);
-                    $arr = array_map('trim', explode(',', $cleanString));
-                    return array_map(fn($f) => $normalizeUrl($f), $arr);
-                }
-
-                return [];
-            };
-
-
-            if ($request->filled('hal_id')) $pengajuan->hal_id = $request->hal_id;
-            if ($request->filled('kepada')) $pengajuan->kepada = $request->kepada;
-            if ($request->filled('satker')) $pengajuan->satker = $request->satker;
-            if ($request->filled('kode_barang')) $pengajuan->kode_barang = $request->kode_barang;
-            if ($request->filled('keterangan')) $pengajuan->keterangan = $request->keterangan;
-
-
-            $filePaths = $normalizeFilePaths($request->file_paths);
-            $pengajuan->file = $filePaths;
-
-            $pengajuan->save();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Pengajuan berhasil diperbarui',
-                'data' => $pengajuan,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Update pengajuan error: ' . $e->getMessage());
+        if (!$pengajuan) {
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan server: ' . $e->getMessage(),
-            ], 500);
+                'message' => 'Data pengajuan tidak ditemukan',
+            ], 404);
         }
+
+        // VALIDASI
+        $request->validate([
+            'hal_id'   => 'sometimes|exists:masterhal,id',
+            'kepada'   => 'nullable|string',
+            'satker'   => 'nullable|string',
+            'kode_barang' => 'nullable|string',
+            'keterangan'  => 'nullable|string',
+            'file_paths'  => 'required|string|min:1',
+        ]);
+
+        
+        $extractPath = function ($url) {
+            if (!$url) return null;
+
+            $parsed = parse_url($url);
+            $path = $parsed['path'] ?? $url;
+
+            return ltrim($path, '/');
+        };
+
+        if ($request->filled('hal_id')) {
+            $pengajuan->hal_id = $request->hal_id;
+
+            $hal = MasterHal::find($request->hal_id);
+            if ($hal) {
+                $pengajuan->hal = $hal->nama_jenis;
+            }
+        }
+
+        if ($request->filled('kepada')) $pengajuan->kepada = $request->kepada;
+        if ($request->filled('satker')) $pengajuan->satker = $request->satker;
+        if ($request->filled('kode_barang')) $pengajuan->kode_barang = $request->kode_barang;
+        if ($request->filled('keterangan')) $pengajuan->keterangan = $request->keterangan;
+
+        $filePaths = $request->file_paths;
+
+        if (is_string($filePaths)) {
+            $filePaths = str_replace(['[', ']', '"'], '', $filePaths);
+            $filePaths = array_map('trim', explode(',', $filePaths));
+        }
+
+        $filePaths = array_map(function ($f) use ($extractPath) {
+            return $extractPath($f);
+        }, $filePaths);
+
+        $pengajuan->file = $filePaths;
+
+        $pengajuan->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Pengajuan berhasil diperbarui',
+            'data' => $pengajuan,
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Update pengajuan error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Terjadi kesalahan server: ' . $e->getMessage(),
+        ], 500);
     }
+}
 
     //delete pengajuan\\
     public function softDelete(Request $request, $uuid)
