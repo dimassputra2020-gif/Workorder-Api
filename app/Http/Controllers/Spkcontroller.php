@@ -222,62 +222,57 @@ class SpkController extends Controller
                 ], 401);
             }
 
-            $spk = Spk::where('uuid_pengajuan', $uuid_pengajuan)->firstOrFail();
+           $spk = Spk::where('uuid_pengajuan', $uuid_pengajuan)->firstOrFail();
 
-            if ($spk->penanggung_jawab_npp !== $externalUser['npp']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anda tidak memiliki izin untuk memperbarui SPK ini.'
-                ], 403);
-            }
+        // CEK NPP PENANGGUNG JAWAB
+        if ($spk->penanggung_jawab_npp !== $externalUser['npp']) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki izin untuk memperbarui SPK ini.'
+            ], 403);
+        }
 
-            $request->validate([
-                'status' => 'nullable|string|in:Pending,Proses,Selesai',
-                'jenis_pekerjaan' => 'nullable|string',
-                'kode_barang' => 'nullable|string',
-                'uraian_pekerjaan' => 'nullable|string',
-                'file' => 'nullable|string|min:1',
-            ]);
+        // VALIDASI
+        $request->validate([
+            'status'           => 'nullable|string|in:Pending,Proses,Selesai',
+            'jenis_pekerjaan'  => 'nullable|string',
+            'kode_barang'      => 'nullable|string',
+            'uraian_pekerjaan' => 'nullable|string',
+            'file'             => 'nullable|string|min:1',
+        ]);
 
-            $normalizeUrl = function ($url) {
-                if (!$url) return null;
+        // === SAMA PERSIS DENGAN STORE ===
+        $extractPath = function ($url) {
+            if (!$url) return null;
 
-                $cleaned = str_replace('\\', '/', $url);
-                $cleaned = str_replace('//', '/', $cleaned);
+            $parsed = parse_url($url);
+            $path = $parsed['path'] ?? $url;
 
-                if (Str::startsWith($cleaned, 'http:/') && !Str::startsWith($cleaned, 'http://')) {
-                    $cleaned = str_replace('http:/', 'http://', $cleaned);
-                }
-                if (Str::startsWith($cleaned, 'https:/') && !Str::startsWith($cleaned, 'https://')) {
-                    $cleaned = str_replace('https:/', 'https://', $cleaned);
-                }
+            return ltrim($path, '/');
+        };
 
-                return $cleaned;
-            };
+        // === PROSES FILE ===
+        $filePaths = $request->file;
 
-            $normalizeFilePaths = function ($filePaths) use ($normalizeUrl) {
-                if (is_array($filePaths)) {
-                    return array_map(fn($f) => $normalizeUrl($f), $filePaths);
-                }
+        if (is_string($filePaths)) {
+            // Hilangkan bracket JSON: ["a","b","c"]
+            $filePaths = str_replace(['[', ']', '"'], '', $filePaths);
+            $filePaths = array_map('trim', explode(',', $filePaths));
+        }
 
-                if (is_string($filePaths)) {
-                    $cleanString = str_replace(['[', ']', '"'], '', $filePaths);
-                    $arr = array_map('trim', explode(',', $cleanString));
-                    return array_map(fn($f) => $normalizeUrl($f), $arr);
-                }
+        // Ambil hanya PATH (bukan URL)
+        $filePaths = array_map(function ($f) use ($extractPath) {
+            return $extractPath($f);
+        }, $filePaths ?? []);
 
-                return [];
-            };
-
-            $filePaths = $normalizeFilePaths($request->file);
-
-            $spk->update([
-                'status'           => $request->status ?? $spk->status,
-                'jenis_pekerjaan'  => $request->jenis_pekerjaan ?? $spk->jenis_pekerjaan,
-                'kode_barang'      => $request->kode_barang ?? $spk->kode_barang,
-                'uraian_pekerjaan' => $request->uraian_pekerjaan ?? $spk->uraian_pekerjaan,
-                'file'             => $filePaths ?? $spk->file,
-            ]);
+        // === UPDATE SPK ===
+        $spk->update([
+            'status'           => $request->status ?? $spk->status,
+            'jenis_pekerjaan'  => $request->jenis_pekerjaan ?? $spk->jenis_pekerjaan,
+            'kode_barang'      => $request->kode_barang ?? $spk->kode_barang,
+            'uraian_pekerjaan' => $request->uraian_pekerjaan ?? $spk->uraian_pekerjaan,
+            'file'             => $filePaths ?: $spk->file,
+        ]);
 
             $pengajuan = Pengajuan::where('uuid', $spk->uuid_pengajuan)->first();
             $tlpPelapor = $pengajuan->tlp_pelapor ?? null;
