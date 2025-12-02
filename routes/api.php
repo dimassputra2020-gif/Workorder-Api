@@ -80,7 +80,7 @@ Route::get('/workorder/permissions', function () {
             "Workorder.pengajuan.riwayat",
             "Workorder.pengajuan.approval",
 
-            "Workorder.spk.create.menugaskan",
+            "Workorder.spk.menugaskan",
             "Workorder.spk.update",
             "Workorder.spk.views",
             "Workorder.spk.view",
