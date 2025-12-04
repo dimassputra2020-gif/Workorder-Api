@@ -290,7 +290,7 @@ class PengajuanController extends Controller
                 'no_surat'       => $pengajuans->no_surat,
                 'tanggal'        => now(),
                 'no_referensi'   => $pengajuans->no_referensi,
-                'status'         => 'draft',
+                'status'         => 'Menunggu',
             ]);
         }
 
@@ -618,35 +618,48 @@ class PengajuanController extends Controller
         }
     }
 
-    //delete ttd\\
-    public function deleteTtd(Request $request, $url)
-    {
-        $url = urldecode($url);
+      ///delete ttd//
+ public function deleteTtd(Request $request)
+{
+    $incomingUrl = $request->input('ttd_url');
 
-        $externalUser = $request->attributes->get('external_user');
+    if (empty($incomingUrl)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Parameter ttd_url wajib ada.'
+        ], 400);
+    }
 
-        if (!$externalUser) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Token tidak valid.'
-            ], 401);
+    $targetPath = $incomingUrl; 
+    $parsed = parse_url($incomingUrl);
+    
+    if (isset($parsed['query'])) {
+        parse_str($parsed['query'], $queryParams);
+        if (isset($queryParams['path'])) {
+            $targetPath = $queryParams['path'];
         }
-
-        $user = User::where('npp', $externalUser['npp'])->first();
-
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'User tidak ditemukan.'
-            ], 404);
-        }
+    }
 
 
-        if ($user->ttd_path === $url) {
+    $targetPathClean = ltrim($targetPath, '/'); 
+    $externalUser = $request->attributes->get('external_user');
+    if (!$externalUser) {
+        return response()->json(['success' => false, 'message' => 'Token invalid'], 401);
+    }
+    $user = User::where('npp', $externalUser['npp'])->first();
+    if (!$user) {
+        return response()->json(['success' => false, 'message' => 'User not found'], 404);
+    }
 
-            $absolute = public_path($user->ttd_path);
+    if ($user->ttd_path) {
+        $dbPath = str_replace('\/', '/', $user->ttd_path);
+        $dbPathClean = ltrim($dbPath, '/');
 
-            if ($user->ttd_path && file_exists($absolute)) {
+        if ($dbPathClean === $targetPathClean) {
+            
+
+            $absolute = public_path($dbPath);
+            if (file_exists($absolute)) {
                 @unlink($absolute);
             }
 
@@ -658,38 +671,44 @@ class PengajuanController extends Controller
                 'message' => 'TTD utama berhasil dihapus.'
             ]);
         }
-
-
-        $list = json_decode($user->ttd_list ?? '[]', true);
-        $index = array_search($url, $list);
-
-        if ($index !== false) {
-
-            $absolute = public_path($list[$index]);
-
-            if (!empty($list[$index]) && file_exists($absolute)) {
-                @unlink($absolute);
-            }
-
-            unset($list[$index]);
-            $list = array_values($list);
-
-            $user->ttd_list = json_encode($list);
-            $user->save();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'TTD list berhasil dihapus.'
-            ]);
-        }
-
-
-        return response()->json([
-            'success' => false,
-            'message' => 'URL TTD tidak ditemukan di ttd_path atau ttd_list.'
-        ], 404);
     }
 
+    $list = json_decode($user->ttd_list ?? '[]', true);
+    
+    $foundIndex = null;
+    foreach ($list as $index => $item) {
+        $itemClean = ltrim(str_replace('\/', '/', $item), '/');
+        if ($itemClean === $targetPathClean) {
+            $foundIndex = $index;
+            break;
+        }
+    }
+
+    if ($foundIndex !== null) {
+        $originalPath = str_replace('\/', '/', $list[$foundIndex]);
+        $absolute = public_path($originalPath);
+        
+        if (file_exists($absolute)) {
+            @unlink($absolute);
+        }
+
+        unset($list[$foundIndex]);
+        $list = array_values($list);
+
+        $user->ttd_list = json_encode($list, JSON_UNESCAPED_SLASHES);
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'TTD list berhasil dihapus.'
+        ]);
+    }
+
+    return response()->json([
+        'success' => false,
+        'message' => "Gagal cocok. Input Bersih: [$targetPathClean]. DB Path User: [" . ltrim($user->ttd_path ?? '', '/') . "]"
+    ], 404);
+}
 
 
     //Riwayat pengajuan rilet pelapor\\
