@@ -75,7 +75,7 @@ class SpkController extends Controller
         try {
 
             $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.spk.create.menugaskan');
+            $cek = $this->checkPermission($externalUser, 'Workorder.spk.menugaskan');
             if ($cek !== true) return $cek;
 
             if (!$externalUser) {
@@ -209,69 +209,63 @@ class SpkController extends Controller
 
     //update status spk\\
     public function updateByPenanggungJawab(Request $request, $uuid_pengajuan)
-    {
-        try {
-            $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.spk.update');
-            if ($cek !== true) return $cek;
+{
+    try {
 
-            if (!$externalUser) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Token tidak valid atau user eksternal tidak ditemukan.'
-                ], 401);
-            }
+        $externalUser = $request->attributes->get('external_user');
+        $cek = $this->checkPermission($externalUser, 'Workorder.spk.update');
+        if ($cek !== true) return $cek;
 
-           $spk = Spk::where('uuid_pengajuan', $uuid_pengajuan)->firstOrFail();
+        if (!$externalUser) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Token tidak valid atau user eksternal tidak ditemukan.'
+            ], 401);
+        }
 
-        // CEK NPP PENANGGUNG JAWAB
+        $spk = Spk::where('uuid_pengajuan', $uuid_pengajuan)->firstOrFail();
+
         if ($spk->penanggung_jawab_npp !== $externalUser['npp']) {
             return response()->json([
                 'success' => false,
                 'message' => 'Anda tidak memiliki izin untuk memperbarui SPK ini.'
             ], 403);
         }
-
-        // VALIDASI
         $request->validate([
-            'status'           => 'nullable|string|in:Pending,Proses,Selesai',
-            'jenis_pekerjaan'  => 'nullable|string',
-            'kode_barang'      => 'nullable|string',
-            'uraian_pekerjaan' => 'nullable|string',
-            'file'             => 'nullable|string|min:1',
-        ]);
+            'status'               => 'nullable|string|in:Pending,Proses,Selesai',
+            'jenis_pekerjaan'      => 'nullable|string',
+            'kode_barang'          => 'nullable|string',
+            'uraian_pekerjaan'     => 'nullable|string',
+            'file'                 => 'nullable|string|min:1',
+            'ttd_pelaksana'        => 'nullable|',
 
-        // === SAMA PERSIS DENGAN STORE ===
+        ]);
         $extractPath = function ($url) {
             if (!$url) return null;
-
             $parsed = parse_url($url);
-            $path = $parsed['path'] ?? $url;
-
-            return ltrim($path, '/');
+            return ltrim($parsed['path'] ?? $url, '/');
         };
 
-        // === PROSES FILE ===
         $filePaths = $request->file;
 
         if (is_string($filePaths)) {
-            // Hilangkan bracket JSON: ["a","b","c"]
             $filePaths = str_replace(['[', ']', '"'], '', $filePaths);
-            $filePaths = array_map('trim', explode(',', $filePaths));
+            $filePaths = array_filter(array_map('trim', explode(',', $filePaths)));
         }
 
-        // Ambil hanya PATH (bukan URL)
-        $filePaths = array_map(function ($f) use ($extractPath) {
-            return $extractPath($f);
-        }, $filePaths ?? []);
+        $filePaths = array_map(fn($f) => $extractPath($f), $filePaths ?? []);
 
-        // === UPDATE SPK ===
+        $ttdPelaksana   = $request->ttd_pelaksana    ? $extractPath($request->ttd_pelaksana)    : $spk->ttd_pelaksana;
+
         $spk->update([
-            'status'           => $request->status ?? $spk->status,
-            'jenis_pekerjaan'  => $request->jenis_pekerjaan ?? $spk->jenis_pekerjaan,
-            'kode_barang'      => $request->kode_barang ?? $spk->kode_barang,
-            'uraian_pekerjaan' => $request->uraian_pekerjaan ?? $spk->uraian_pekerjaan,
-            'file'             => $filePaths ?: $spk->file,
+            'status'               => $request->status ?? $spk->status,
+            'jenis_pekerjaan'      => $request->jenis_pekerjaan ?? $spk->jenis_pekerjaan,
+            'kode_barang'          => $request->kode_barang ?? $spk->kode_barang,
+            'uraian_pekerjaan'     => $request->uraian_pekerjaan ?? $spk->uraian_pekerjaan,
+            'file'                 => $filePaths ?: $spk->file,
+            'pelaksana'            => $spk->pelaksana ?? $externalUser['name'],
+            'pelaksana_npp'        => $spk->pelaksana_npp ?? $externalUser['npp'],
+            'ttd_pelaksana'        => $ttdPelaksana,
         ]);
 
             $pengajuan = Pengajuan::where('uuid', $spk->uuid_pengajuan)->first();
