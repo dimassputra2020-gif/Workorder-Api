@@ -27,7 +27,7 @@ Route::middleware(['check.external.token'])->group(function () {
     Route::get('/user/ttd/{npp}', [PengajuanController::class,  'getMyTTD']);
     Route::get('/pengajuan/rferensi/surat', [PengajuanController::class, 'listNoSurat']); 
     Route::post('/user/create/ttd', [PengajuanController::class, 'create']);
-    Route::delete('/user/delete/ttd/{url}', [PengajuanController::class, 'deleteTtd'])
+    Route::delete('/user/delete/ttd', [PengajuanController::class, 'deleteTtd'])
     ->where('url', '.*');
 
                //menampilkan data pengajuan yg rilet//
