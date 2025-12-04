@@ -26,7 +26,10 @@ class Spk extends Model
         'status',
         'ttd_mengetahui',
         'no_surat',
-        'no_referensi'
+        'no_referensi',
+        'pelaksana',
+        'pelaksana_npp',
+        'ttd_pelaksana',
     ];
 
     protected $casts = [
