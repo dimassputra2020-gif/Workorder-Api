@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::table('pengajuans', function (Blueprint $table) {
             // Tambahan kolom acuan no surat lama
-            $table->string('no_referensi')->nullable()->after('no_surat');
+            $table->string('no_referensi')->nullable();
         });
     }
 

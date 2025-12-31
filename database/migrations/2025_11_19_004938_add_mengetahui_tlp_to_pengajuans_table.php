@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('pengajuans', function (Blueprint $table) {
             // Tambahan kolom acuan no surat lama
-            $table->string('mengatahui_tlp')->nullable()->after('mengetahui_npp');
+            $table->string('mengetahui_tlp')->nullable()->after('mengetahui_npp');
         });
     }
 

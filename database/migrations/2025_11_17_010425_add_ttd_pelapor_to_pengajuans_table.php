@@ -9,12 +9,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('pengajuans', function (Blueprint $table) {
-            // Jika kolom file belum json, boleh ganti ke json
             if (!Schema::hasColumn('pengajuans', 'ttd_pelapor')) {
-                $table->json('ttd_pelapor')->nullable()->after('no_surat');
+                $table->json('ttd_pelapor')->nullable();
             }
 
-            // Tambah kolom ttd_pelapor jika belum ada
+
             if (!Schema::hasColumn('pengajuans', 'ttd_mengetahui')) {
                 $table->string('ttd_mengetahui')->nullable()->after('ttd_pelapor');
             }

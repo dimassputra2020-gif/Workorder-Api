@@ -11,17 +11,14 @@ return new class extends Migration {
             $table->id();
             $table->string('uuid_pengajuan');
             $table->date('tanggal');
-            $table->string('jenis_pekerjaan');
+            $table->string('jenis_pekerjaan_id');
             $table->string('kode_barang');
             $table->text('uraian_pekerjaan')->nullable();
-            $table->json('stafs'); // array berisi staf yang ditugaskan (npp + nama)
+            $table->json('stafs');
             $table->string('penanggung_jawab_npp');
             $table->string('penanggung_jawab_name');
-            $table->string('mengetahui_name');
-            $table->string('mengetahui_npp');
-            $table->string('mengetahui');
             $table->string('status')->default('pending'); 
-            $table->string('')->default('pending'); 
+           
             $table->timestamps();
         });
     }

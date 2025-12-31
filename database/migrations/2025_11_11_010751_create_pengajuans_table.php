@@ -15,8 +15,6 @@ return new class extends Migration
     $table->string('mengetahui_name')->nullable();
     $table->string('mengetahui_npp')->nullable();
     $table->string('mengetahui')->nullable();
-     $table->text('hal')->nullable();
-      $table->text('catatan')->nullable();
       $table->text('kepada')->nullable();
      $table->text('satker')->nullable();
     $table->string('kode_barang');

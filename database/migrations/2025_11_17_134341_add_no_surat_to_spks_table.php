@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::table('spks', function (Blueprint $table) {
             // Jika kolom file belum json, boleh ganti ke json
             if (!Schema::hasColumn('spks', 'no_surat')) {
-                $table->json('no_surat')->nullable()->after('file');
+                $table->json('no_surat')->nullable();
             }
         });
     }
