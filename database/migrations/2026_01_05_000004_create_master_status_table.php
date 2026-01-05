@@ -7,15 +7,16 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
-        Schema::table('spks', function (Blueprint $table) {
-            $table->text('file')->nullable()->change();
+        Schema::create('master_status', function (Blueprint $table) {
+            $table->id();
+            $table->string('code', 50)->unique();
+            $table->string('name');
+            $table->timestamps();
         });
     }
 
     public function down(): void
     {
-        Schema::table('spks', function (Blueprint $table) {
-            $table->string('file', 255)->nullable()->change();
-        });
+        Schema::dropIfExists('master_status');
     }
 };

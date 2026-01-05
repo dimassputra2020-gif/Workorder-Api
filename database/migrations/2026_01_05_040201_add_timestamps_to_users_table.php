@@ -7,16 +7,15 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
-        Schema::table('pengajuans', function (Blueprint $table) {
-            // Tambahan kolom acuan no surat lama
-            $table->string('no_referensi')->nullable();
+        Schema::table('users', function (Blueprint $table) {
+            $table->timestamps();
         });
     }
 
     public function down(): void
     {
-        Schema::table('pengajuans', function (Blueprint $table) {
-            $table->dropColumn('no_referensi');
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropTimestamps();
         });
     }
 };

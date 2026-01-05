@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('pengajuans', function (Blueprint $table) {
-            $table->string('hal_id')->nullable();
+        Schema::table('spks', function (Blueprint $table) {
+             $table->boolean('is_deleted')->default(false);
         });
     }
 
@@ -21,7 +21,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('pengajuans', function (Blueprint $table) {
+        Schema::table('spks', function (Blueprint $table) {
             //
         });
     }

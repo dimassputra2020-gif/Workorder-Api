@@ -4,27 +4,20 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
-    /**
-     * Run the migrations.
-     */
+return new class extends Migration {
     public function up(): void
     {
         Schema::create('timelines', function (Blueprint $table) {
             $table->id();
-            $table->string('uuid_pengajuan')->index();
-            $table->string('source')->comment('pengajuan / spk / system');
+            $table->uuid('uuid_pengajuan');
+            $table->string('source');
             $table->string('title');
-            $table->string('status')->nullable();
+            $table->string('status', 255);
             $table->text('message')->nullable();
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('timelines');
