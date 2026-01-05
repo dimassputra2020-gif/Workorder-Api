@@ -10,7 +10,7 @@ class MasterStatusController extends Controller
 {
     public function index()
     {
-        $master_status = MasterStatus::all(['code', 'name']);
+        $master_status = MasterStatus::all(['id','code', 'name']);
 
         return response()->json([
             'success' => true,
