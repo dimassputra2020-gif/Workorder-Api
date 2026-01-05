@@ -6,56 +6,58 @@ use App\Models\InternalNotification;
 
 class NotifController extends Controller
 {
-    public function getNotifications($npp)
-    {
-        
-        if (request()->has('stream') && request()->stream == 1) {
-            return $this->streamNotifications($npp);
-        }
+   public function getNotifications($npp)
+{
+    if (request()->has('stream') && request()->stream == 1) {
+        return $this->streamNotifications($npp);
+    }
 
-        $notifications = InternalNotification::where('npp', $npp)
+    $notifications = InternalNotification::where('npp', $npp)
+        ->orderBy('created_at', 'desc')
+        ->limit(20)
+        ->get();
+
+    $unreadCount = InternalNotification::where('npp', $npp)
+        ->where('status', 'unread')
+        ->count();
+
+    return response()->json([
+        'success' => true,
+        'unread_count' => $unreadCount,
+        'data' => $notifications,
+    ]);
+}
+
+private function streamNotifications($npp)
+{
+    header('Content-Type: text/event-stream');
+    header('Cache-Control: no-cache');
+    header('Connection: keep-alive');
+
+    while (true) {
+
+        $notif = InternalNotification::where('npp', $npp)
             ->orderBy('created_at', 'desc')
             ->limit(20)
             ->get();
 
-        if ($notifications->isEmpty()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Tidak ada notifikasi baru.',
-            ]);
-        }
+        $unreadCount = InternalNotification::where('npp', $npp)
+            ->where('status', 'unread')
+            ->count();
 
-        return response()->json([
+        echo "data: " . json_encode([
             'success' => true,
-            'data' => $notifications
-        ]);
+            'unread_count' => $unreadCount,
+            'data' => $notif
+        ]) . "\n\n";
+
+        ob_flush();
+        flush();
+
+        sleep(5);
     }
-    
+}
 
-    private function streamNotifications($npp)
-    {
-        header('Content-Type: text/event-stream');
-        header('Cache-Control: no-cache');
-        header('Connection: keep-alive');
-
-        while (true) {
-
-            $notif = InternalNotification::where('npp', $npp)
-                ->orderBy('created_at', 'desc')
-                ->limit(20)
-                ->get();
-
-            echo "data: " . json_encode([
-                'success' => true,
-                'data' => $notif
-            ]) . "\n\n";
-
-            ob_flush();
-            flush();
-
-            sleep(5); 
-        }
-    }
 
 
     public function getAllNotifications($npp)
