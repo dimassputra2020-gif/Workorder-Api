@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 use App\Models\Spk;
 use App\Models\user;
 use App\Models\MasterHal;
-
+use Illuminate\Support\Facades\Http;
 
 
 class PengajuanController extends Controller
@@ -75,8 +75,8 @@ class PengajuanController extends Controller
             }
             $request->validate([
                 'hal_id' => 'required|exists:masterhal,id',
-                'kepada' => 'nullable|string',
                 'satker' => 'nullable|string',
+                'kd_satker' => 'required|string',
                 'kode_barang' => 'nullable|string',
                 'keterangan' => 'nullable|string',
                 'file_paths' => 'required|string|min:1',
@@ -87,6 +87,8 @@ class PengajuanController extends Controller
                 'mengetahui_npp'  => 'nullable|string',
                 'mengetahui_tlp'  => 'nullable|string',
             ]);
+
+
             $extractPath = function ($url) {
                 if (!$url) return null;
 
@@ -157,12 +159,44 @@ class PengajuanController extends Controller
 
             $uuid = (string) Str::uuid();
 
+            $token = $request->bearerToken();
+            $kdSatker = $request->kd_satker;
+
+            $url = rtrim(env('BASE_URL'), '/') . '/api/client/satker/all';
+
+            $response = Http::withToken($token)->timeout(5)->get($url);
+
+            if (!$response->successful()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal memuat data satker dari API eksternal'
+                ], 500);
+            }
+
+            $data = collect($response->json()['data'] ?? []);
+
+            $satker = $data->firstWhere('kd_satker', $kdSatker);
+
+            if (!$satker) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'kd_satker tidak ditemukan.'
+                ], 404);
+            }
+
+            $nppKepalaSatker = $satker['npp_kepala_satker'] ?? null;
+
+
+            $kdSatker = $request->kd_satker;
+            $nppSatker = $request->npp_kepala_satker;
+
             $pengajuan = Pengajuan::create([
                 'uuid'               => $uuid,
                 'hal_id'             => $request->hal_id,
-                'hal'                => $masterHal->nama_jenis,
-                'kepada'             => $request->kepada,
                 'satker'             => $request->satker,
+                'hal'                => $masterHal->nama_jenis,
+                'kd_satker'          => $kdSatker,
+                'npp_kepala_satker'  => $nppKepalaSatker, // AUTO FILL
                 'kode_barang'        => $request->kode_barang,
                 'keterangan'         => $request->keterangan,
                 'file'               => $filePaths,
@@ -181,13 +215,15 @@ class PengajuanController extends Controller
             ]);
 
 
+
             $this->addTimeline(
                 $uuid,
                 'pengajuan',
                 'Pengajuan Baru Dibuat',
                 'pending',
-                'Pengajuan berhasil dibuat oleh pelapor.'
+                'Pengajuan berhasil dibuat oleh ' . $pengajuan->name_pelapor . '.'
             );
+
 
 
             $pengajuan->load('masterhal');
@@ -244,67 +280,70 @@ class PengajuanController extends Controller
 
 
     //update status\\ 
-   public function updateStatus(Request $request, $uuid)
-{
-    try {
-        $externalUser = $request->attributes->get('external_user');
-        $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.approval');
-        if ($cek !== true) return $cek;
+    public function updateStatus(Request $request, $uuid)
+    {
+        try {
+            $externalUser = $request->attributes->get('external_user');
+            $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.approval');
+            if ($cek !== true) return $cek;
 
-        if (!$externalUser) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Data user eksternal tidak ditemukan.'
-            ], 401);
-        }
+            if (!$externalUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data user eksternal tidak ditemukan.'
+                ], 401);
+            }
 
-        $rules = [
-            'status' => 'required|in:pending,approved,rejected',
-        ];
+            $rules = [
+                'status' => 'required|in:pending,approved,rejected',
+            ];
 
-        if ($request->status !== 'rejected') {
-           
-            $rules['ttd_mengetahui'] = 'required|string';
-        }
+            if ($request->status !== 'rejected') {
 
-        if ($request->status === 'rejected') {
-            $rules['catatan_status'] = 'required|string|min:3';
-        }
+                $rules['ttd_mengetahui'] = 'required|string';
+            }
 
-        $request->validate($rules);
+            if ($request->status === 'rejected') {
+                $rules['catatan_status'] = 'required|string|min:3';
+            }
 
-      
-        $pengajuans = Pengajuan::where('uuid', $uuid)->first();
-        if (!$pengajuans) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Data pengajuan tidak ditemukan.'
-            ], 404);
-        }
+            $request->validate($rules);
 
-        if (
-            ($pengajuans->is_deleted ?? 0) == 1 ||
-            ($pengajuans->deleted ?? 0) == 1 ||
-            ($pengajuans->is_delete ?? 0) == 1
-        ) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Pengajuan sudah dihapus, tidak dapat diperbarui.'
-            ], 400);
-        }
 
-    
-        $finalTtd = null;
-        if ($request->status !== 'rejected') {
-            $finalTtd = $this->extractPath($request->ttd_mengetahui);
-        }
+            $pengajuans = Pengajuan::where('uuid', $uuid)->first();
+            if (!$pengajuans) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data pengajuan tidak ditemukan.'
+                ], 404);
+            }
 
-       
-        $pengajuans->update([
-            'status'         => $request->status,
-            'catatan_status' => $request->status === 'rejected' ? $request->catatan_status : null,
-            'ttd_mengetahui' => $finalTtd,
-        ]);
+            if (
+                ($pengajuans->is_deleted ?? 0) == 1 ||
+                ($pengajuans->deleted ?? 0) == 1 ||
+                ($pengajuans->is_delete ?? 0) == 1
+            ) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Pengajuan sudah dihapus, tidak dapat diperbarui.'
+                ], 400);
+            }
+
+
+            $finalTtd = null;
+            if ($request->status !== 'rejected') {
+                $finalTtd = $this->extractPath($request->ttd_mengetahui);
+            }
+
+
+            $pengajuans->update([
+                'status'         => $request->status,
+                'catatan_status' => $request->status === 'rejected' ? $request->catatan_status : null,
+                'ttd_mengetahui' => $finalTtd,
+            ]);
+
+
+            $namaUpdater = $pengajuans->mengetahui_name ?? 'Mengetahui';
 
             $this->addTimeline(
                 $uuid,
@@ -312,9 +351,10 @@ class PengajuanController extends Controller
                 'Status Pengajuan Diupdate',
                 $request->status,
                 $request->status === 'rejected'
-                    ? ($request->catatan_status ?? null)
-                    : 'Status diupdate menjadi ' . $request->status
+                    ? 'Ditolak oleh ' . $namaUpdater . '. Catatan: ' . $request->catatan_status
+                    : 'Status diupdate menjadi ' . $request->status . ' oleh ' . $namaUpdater . '.'
             );
+
 
 
             $pengajuans->update([
@@ -331,17 +371,59 @@ class PengajuanController extends Controller
                 'mengetahui_tlp'  => $originalMengetahuiTlp,
                 'kode_barang'    => $pengajuans->kode_barang,
             ]);
-
+            $token = $request->bearerToken();
 
             $spk = Spk::where('uuid_pengajuan', $uuid)->first();
-            if ($request->status == 'approved' && !$spk) {
+
+            if ($request->status === 'approved') {
+                $nppKepala = $pengajuans->npp_kepala_satker ?? null;
+                $tlpYangMenugaskan = null;
+
+                if ($nppKepala) {
+                    $url = rtrim(env('BASE_URL'), '/') . "/api/masterdata/users/search-npps/{$nppKepala}";
+
+                    try {
+                        $response = Http::withToken($token)
+                            ->acceptJson()
+                            ->timeout(15)
+                            ->get($url);
+
+                        if ($response->successful()) {
+                            $data = $response->json();
+                            $tlpRaw = $data['data'][0]['rl_pegawai_local']['tlp'] ?? null;
+
+                            if ($tlpRaw) {
+                                $tlpArray = preg_split('/[,\s]+/', $tlpRaw);
+                                $tlpYangMenugaskan = collect($tlpArray)
+                                    ->map(fn($n) => preg_replace('/[^0-9]/', '', $n))
+                                    ->first(fn($n) => preg_match('/^08\d{6,12}$/', $n));
+                            }
+                        }
+                    } catch (\Illuminate\Http\Client\RequestException $e) {
+                        Log::error("Gagal mengambil data telepon: " . $e->getMessage());
+                    }
+                }
+
+                if ($tlpYangMenugaskan) {
+                    $message = \App\Services\FonnteMessageService::penugasanspk($pengajuans, $token);
+                    \App\Services\FonnteService::sendMessage($tlpYangMenugaskan, $message);
+
+                    \App\Helpers\Notif::push(
+                        $pengajuans->uuid,
+                        $nppKepala,
+                        "Ada Penugasan SPK Baru",
+                        "Ada SPK baru yang perlu Anda tugaskan untuk pengajuan dengan nomor surat {$pengajuans->no_surat}."
+                    );
+                }
                 $spk = Spk::create([
                     'uuid_pengajuan' => $uuid,
                     'no_surat'       => $pengajuans->no_surat,
+                    'kd_satker'       => $pengajuans->kd_satker,
                     'tanggal'        => now(),
                     'no_referensi'   => $pengajuans->no_referensi,
                     'kode_barang'    => $pengajuans->kode_barang,
                     'status_id'         => '4',
+                    'npp_kepala_satker'  => $pengajuans->npp_kepala_satker,
                 ]);
             }
 
@@ -417,7 +499,8 @@ class PengajuanController extends Controller
         }
     }
 
-    //edit pengajuan\\
+
+    //edit/
     public function edit(Request $request, $uuid)
     {
         try {
@@ -434,16 +517,14 @@ class PengajuanController extends Controller
                 ], 404);
             }
 
-            // VALIDASI
             $request->validate([
-                'hal_id'   => 'sometimes|exists:masterhal,id',
-                'kepada'   => 'nullable|string',
-                'satker'   => 'nullable|string',
-                'kode_barang' => 'nullable|string',
-                'keterangan'  => 'nullable|string',
-                'file_paths'  => 'nullable|string',
+                'hal_id'       => 'sometimes|exists:masterhal,id',
+                'kepada'       => 'nullable|string',
+                'satker'       => 'nullable|string',
+                'kode_barang'  => 'nullable|string',
+                'keterangan'   => 'nullable|string',
+                'file_paths'   => 'nullable|string',
             ]);
-
 
             $extractPath = function ($url) {
                 if (!$url) return null;
@@ -455,8 +536,6 @@ class PengajuanController extends Controller
             };
 
             if ($request->filled('hal_id')) {
-                $pengajuan->hal_id = $request->hal_id;
-
                 $hal_id = MasterHal::find($request->hal_id);
                 if ($hal_id) {
                     $pengajuan->hal_id = $hal_id->id;
@@ -468,18 +547,26 @@ class PengajuanController extends Controller
             if ($request->filled('kode_barang')) $pengajuan->kode_barang = $request->kode_barang;
             if ($request->filled('keterangan')) $pengajuan->keterangan = $request->keterangan;
 
-            $filePaths = $request->file_paths;
+            if ($request->has('file_paths')) {
 
-            if (is_string($filePaths)) {
-                $filePaths = str_replace(['[', ']', '"'], '', $filePaths);
-                $filePaths = array_map('trim', explode(',', $filePaths));
+                $existing = is_array($pengajuan->file) ? $pengajuan->file : [];
+
+                $filePaths = $request->file_paths;
+
+                if (is_string($filePaths)) {
+                    $filePaths = str_replace(['[', ']', '"'], '', $filePaths);
+                    $filePaths = array_map('trim', explode(',', $filePaths));
+                }
+
+                $newFiles = array_map(function ($f) use ($extractPath) {
+                    return $extractPath($f);
+                }, $filePaths);
+
+
+                $mergedFiles = array_values(array_unique(array_merge($existing, $newFiles)));
+
+                $pengajuan->file = $mergedFiles;
             }
-
-            $filePaths = array_map(function ($f) use ($extractPath) {
-                return $extractPath($f);
-            }, $filePaths);
-
-            $pengajuan->file = $filePaths;
 
             $pengajuan->save();
 
@@ -504,6 +591,7 @@ class PengajuanController extends Controller
             ], 500);
         }
     }
+
 
     //delete pengajuan\\
     public function softDelete(Request $request, $uuid)
@@ -554,15 +642,20 @@ class PengajuanController extends Controller
         $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.views');
         if ($cek !== true) return $cek;
 
+        $npp = $externalUser['npp'];
+
         $data = Pengajuan::where('is_deleted', 0)
+            ->where('mengetahui_npp', $npp)
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->paginate(50);
 
         return response()->json([
             'success' => true,
             'data' => $data,
         ]);
     }
+
+
 
     //view\\
     public function showPengajuan(Request $request, $uuid)
@@ -575,11 +668,53 @@ class PengajuanController extends Controller
             $pengajuan = \App\Models\Pengajuan::where('uuid', $uuid)
                 ->where('is_deleted', 0)
                 ->firstOrFail();
-            $masterHal = \App\Models\MasterHal::where('id', $pengajuan->hal_id)->first();
+
+            $masterHal = \App\Models\MasterHal::find($pengajuan->hal_id);
+
+            $token = $request->bearerToken();
+            $url = rtrim(env('BASE_URL'), '/') . '/api/client/satker/all';
+
+            $response = Http::withToken($token)
+                ->timeout(30)
+                ->retry(3, 200)
+                ->get($url);
+
+            if (!$response->successful()) {
+                throw new \Exception('Gagal mengambil data satker dari API eksternal');
+            }
+
+            $satkers = $response->json()['data'] ?? [];
+
+            $satker = collect($satkers)
+                ->where('kd_satker', $pengajuan->kd_satker)
+                ->map(function ($item) {
+                    return [
+                        'kd_satker' => $item['kd_satker'] ?? null,
+                        'satker_name' => $item['satker_name'] ?? null,
+                    ];
+                })
+                ->first();
+
+
+
+            $kdparents = $response->json()['data'] ?? [];
+
+            $kdparent = collect($kdparents)
+                ->where('kd_parent', $pengajuan->satker)
+                ->map(function ($item) {
+                    return [
+                        'kd_parent' => $item['kd_parent'] ?? null,
+                        'parent_satker' => $item['parent_satker'] ?? null,
+                    ];
+                })
+                ->first();
+
             return response()->json([
                 'success' => true,
                 'data' => $pengajuan,
-                'masterhal' => $masterHal
+                'masterhal' => $masterHal,
+                'kd_satker' => $satker,
+                'kd_parent' => $kdparent
             ], 200);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
@@ -593,6 +728,9 @@ class PengajuanController extends Controller
             ], 500);
         }
     }
+
+
+
 
     //ttd\\
     public function getMyTTD(Request $request)
@@ -668,7 +806,7 @@ class PengajuanController extends Controller
                 ], 404);
             }
 
-    
+
             $ttdList = $user->ttd_list ?? [];
 
             if (is_string($ttdList)) {
@@ -792,54 +930,53 @@ class PengajuanController extends Controller
     }
 
 
-   public function riwayat(Request $request)
-{
-    try {
-        $externalUser = $request->attributes->get('external_user');
-        $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.riwayat');
-        if ($cek !== true) return $cek;
+    public function riwayat(Request $request)
+    {
+        try {
+            $externalUser = $request->attributes->get('external_user');
+            $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.riwayat');
+            if ($cek !== true) return $cek;
 
-        if (!$externalUser || empty($externalUser['npp'])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Token tidak valid.'
-            ], 401);
-        }
+            if (!$externalUser || empty($externalUser['npp'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Token tidak valid.'
+                ], 401);
+            }
 
-        $npp = $externalUser['npp'];
+            $npp = $externalUser['npp'];
 
-        $data = Pengajuan::where('is_deleted', 0)
-            ->where(function ($q) use ($npp) {
-                $q->where('npp_pelapor', $npp)
-                  ->orWhere('mengetahui_npp', $npp);
-            })
-            ->orderBy('created_at', 'desc')
-            ->get();
+            $data = Pengajuan::where('is_deleted', 0)
+                ->where(function ($q) use ($npp) {
+                    $q->where('npp_pelapor', $npp)
+                        ->orWhere('mengetahui_npp', $npp);
+                })
+                ->orderBy('created_at', 'desc')
+                ->get();
 
-        if ($data->isEmpty()) {
+            if ($data->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Belum ada riwayat pengajuan.',
+                    'data' => []
+                ], 200);
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => 'Belum ada riwayat pengajuan.',
-                'data' => []
+                'message' => 'Riwayat pengajuan berhasil diambil.',
+                'total' => $data->count(),
+                'data' => $data
             ], 200);
+        } catch (\Exception $e) {
+            Log::error('Riwayat pengajuan error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan server.'
+            ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Riwayat pengajuan berhasil diambil.',
-            'total' => $data->count(),
-            'data' => $data
-        ], 200);
-
-    } catch (\Exception $e) {
-        Log::error('Riwayat pengajuan error: ' . $e->getMessage());
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Terjadi kesalahan server.'
-        ], 500);
     }
-}
 
 
     // Ambil no_surat + keterangan \\
