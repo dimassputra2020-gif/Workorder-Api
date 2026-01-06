@@ -9,37 +9,51 @@ use Illuminate\Http\Request;
 
 class SatkerController extends Controller
 {
-   
     public function getSatker(Request $request)
     {
         try {
-            $token = $request->header('Authorization');
+            $externalUser = $request->attributes->get('external_user');
+
+            if (!$externalUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data user eksternal tidak ditemukan. Pastikan token valid.'
+                ], 401);
+            }
+
+            $token = $request->bearerToken();
 
             if (!$token) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Token tidak ditemukan. Kirim Authorization Bearer token.'
+                    'message' => 'Authorization Bearer token tidak ditemukan.'
                 ], 401);
             }
 
-            $token = str_replace('Bearer ', '', $token);
-
-            $satkers = Cache::remember('satkers_all', 300, function() use ($token) {
+            $satkers = Cache::remember("satkers_filtered", 300, function () use ($token) {
                 $url = rtrim(env('BASE_URL'), '/') . '/api/client/satker/all';
+
                 $response = Http::withToken($token)->timeout(5)->get($url);
 
                 if (!$response->successful()) {
-                    throw new \Exception('Gagal ambil data dari API eksternal: ' . $response->body());
+                    throw new \Exception('Gagal mengambil data dari API eksternal: ' . $response->body());
                 }
 
-                return $response->json()['data'] ?? [];
+                $data = $response->json()['data'] ?? [];
+
+                return collect($data)->map(function ($item) {
+                    return [
+                        'kd_satker'         => $item['kd_satker'] ?? '',
+                        'satker_name'       => $item['satker_name'] ?? '',
+                        'npp_kepala_satker' => $item['npp_kepala_satker'] ?? ''
+                    ];
+                })->values()->toArray();
             });
 
             return response()->json([
                 'success' => true,
-                'data' => $satkers
+                'data'    => $satkers
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -48,7 +62,7 @@ class SatkerController extends Controller
         }
     }
 
-    public function getJabSatker(Request $request)
+public function getTlpByNpp(Request $request, $npp)
     {
         try {
             $token = $request->header('Authorization');
@@ -62,72 +76,43 @@ class SatkerController extends Controller
 
             $token = str_replace('Bearer ', '', $token);
 
-            $satkers = Cache::remember('satkers_jabsatker', 300, function() use ($token) {
-                $url = rtrim(env('BASE_URL'), '/') . '/api/client/satker/all';
-                $response = Http::withToken($token)->timeout(5)->get($url);
+            $url = rtrim(env('BASE_URL'), '/') . "/api/masterdata/users/search-npps/{$npp}";
 
-                if (!$response->successful()) {
-                    throw new \Exception('Gagal ambil data dari API eksternal: ' . $response->body());
-                }
+            $response = Http::withToken($token)
+                ->acceptJson()
+                ->timeout(10)
+                ->get($url);
 
-                return $response->json()['data'] ?? [];
-            });
-
-            
-            $result = collect($satkers)
-                ->pluck('jabsatker')
-                ->filter()
-                ->values();
-
-            return response()->json([
-                'success' => true,
-                'data' => $result
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Kesalahan server: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    
-    public function getSatkerName(Request $request)
-    {
-        
-        try {
-            $token = $request->header('Authorization');
-
-            if (!$token) {
+            if ($response->status() === 401) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Authorization token tidak ditemukan.'
+                    'message' => 'Token invalid atau expired'
                 ], 401);
             }
 
-            $token = str_replace('Bearer ', '', $token);
+            if (!$response->successful()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'API eksternal error',
+                    'status' => $response->status(),
+                    'response' => $response->json() ?? $response->body()
+                ], 500);
+            }
 
-            $satkers = Cache::remember('satkers_name', 300, function() use ($token) {
-                $url = rtrim(env('BASE_URL'), '/') . '/api/client/satker/all';
-                $response = Http::withToken($token)->timeout(5)->get($url);
+            $data = $response->json()['data'][0] ?? null;
 
-                if (!$response->successful()) {
-                    throw new \Exception('Gagal ambil data dari API eksternal: ' . $response->body());
-                }
-
-                return $response->json()['data'] ?? [];
-            });
-
-            
-             $result = collect($satkers)
-                ->pluck('satker_name')
-                ->filter()
-                ->values();
+            if (!$data || empty($data['rl_pegawai_local']['tlp'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Nomor telepon tidak ditemukan'
+                ], 404);
+            }
 
             return response()->json([
                 'success' => true,
-                'data' => $result
+                'npp' => $npp,
+                'name' => $data['name'] ?? '',
+                'tlp' => $data['rl_pegawai_local']['tlp']
             ]);
 
         } catch (\Exception $e) {
@@ -137,4 +122,5 @@ class SatkerController extends Controller
             ], 500);
         }
     }
+
 }
