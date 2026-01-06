@@ -10,8 +10,9 @@ class Pengajuan extends Model
     use HasFactory;
 
     protected $fillable = [
-        'hal',
-        'kepada',
+        'hal_id',
+        'kd_satker',
+        'npp_kepala_satker',
         'satker',
         'kode_barang',
         'keterangan',
@@ -47,5 +48,12 @@ class Pengajuan extends Model
     {
         return $this->belongsTo(MasterHal::class, 'hal_id','id');
     }
+
+
+    public function timelines()
+{
+    return $this->hasMany(Timeline::class, 'uuid_pengajuan', 'uuid')
+                ->orderBy('created_at', 'asc');
+}
 
 }
