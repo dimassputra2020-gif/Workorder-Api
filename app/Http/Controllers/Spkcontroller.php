@@ -8,32 +8,49 @@ use App\Models\Spk;
 use App\Models\Pengajuan;
 use App\Services\FonnteMessageService;
 use App\Services\FonnteService;
+use App\models\InternalNotification;
+use App\Models\MasterStatus;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 
 class SpkController extends Controller
 {
-   private function checkPermission($externalUser, $permission)
-{
-    $npp = $externalUser['npp'] ?? null;
-    
-    $permissions = \App\Helpers\PermissionStore::getPermissionsFor($npp); 
+    private function checkPermission($externalUser, $permission)
+    {
+        $npp = $externalUser['npp'] ?? null;
 
-    if (empty($permissions)) {
-         return response()->json([
-            'success' => false,
-            'message' => 'NPP tidak memiliki data permission atau token tidak valid.'
-        ], 403);
-    }
-    
-    if (!in_array($permission, $permissions)) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Anda tidak memiliki permission: ' . $permission
-        ], 403);
+        $permissions = \App\Helpers\PermissionStore::getPermissionsFor($npp);
+
+        if (empty($permissions)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'NPP tidak memiliki data permission atau token tidak valid.'
+            ], 403);
+        }
+
+        if (!in_array($permission, $permissions)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki permission: ' . $permission
+            ], 403);
+        }
+
+        return true;
     }
 
-    return true;
-}
+    private function addTimeline($uuidPengajuan, $source, $title, $status, $message = null)
+    {
+        \App\Models\Timeline::create([
+            'uuid_pengajuan' => $uuidPengajuan,
+            'source'         => $source,
+            'title'          => $title,
+            'status'         => $status,
+            'message'        => $message,
+        ]);
+    }
+
+
 
     //views\\
     public function index(Request $request)
@@ -43,14 +60,29 @@ class SpkController extends Controller
             $cek = $this->checkPermission($externalUser, 'Workorder.spk.views');
             if ($cek !== true) return $cek;
 
+            $npp = $externalUser['npp'] ?? null;
+
+            if (!$npp) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'NPP tidak ditemukan pada token.'
+                ], 400);
+            }
+
             $data = Spk::where('is_deleted', 0)
+                ->where(function ($query) use ($npp) {
+                    $query->where('npp_kepala_satker', $npp)
+                        ->orWhere('menyetujui_npp', $npp)
+                        ->orWhere('mengetahui_npp', $npp)
+                        ->orWhere('penanggung_jawab_npp', $npp);
+                })
                 ->orderBy('created_at', 'desc')
                 ->get();
 
             if ($data->isEmpty()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Belum ada data SPK.',
+                    'message' => 'Data SPK tidak ditemukan untuk NPP tersebut.',
                     'data' => []
                 ], 200);
             }
@@ -59,7 +91,7 @@ class SpkController extends Controller
                 'success' => true,
                 'message' => 'Data SPK berhasil diambil.',
                 'total' => $data->count(),
-                'data' => $data,
+                'data' => $data->fresh()->load('status', 'jenisPekerjaan'),
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
@@ -113,7 +145,34 @@ class SpkController extends Controller
             }
 
             $tlpPelapor = $pengajuan->tlp_pelapor;
-            $tlpMengetahui = $pengajuan->mengetahui_tlp ?? null;
+            $nppKepalaSatker = $spk->npp_kepala_satker ?? null;
+            $tlpYangMenugaskan = null;
+
+            if ($nppKepalaSatker) {
+                $token = $request->bearerToken();
+                $url = rtrim(env('BASE_URL'), '/') . "/api/masterdata/users/search-npps/{$nppKepalaSatker}";
+
+                try {
+                    $response = Http::withToken($token)
+                        ->acceptJson()
+                        ->timeout(15)
+                        ->get($url);
+
+                    if ($response->successful()) {
+                        $data = $response->json();
+                        $tlpRaw = $data['data'][0]['rl_pegawai_local']['tlp'] ?? null;
+
+                        if ($tlpRaw) {
+                            $tlpArray = preg_split('/[,\s]+/', $tlpRaw);
+                            $tlpYangMenugaskan = collect($tlpArray)
+                                ->map(fn($n) => preg_replace('/[^0-9]/', '', $n))
+                                ->first(fn($n) => preg_match('/^08\d{6,12}$/', $n));
+                        }
+                    }
+                } catch (\Illuminate\Http\Client\RequestException $e) {
+                }
+            }
+
 
 
             $stafFinal = [];
@@ -141,8 +200,51 @@ class SpkController extends Controller
                 "penanggung_jawab_name" => $penanggung['nama'],
                 "penanggung_jawab_npp"  => $penanggung['npp'],
                 "penanggung_jawab_tlp"  => $penanggung['tlp'],
-                "status" => "assigned"
+                "status_id" => "5"
             ]);
+
+            $namaMenugaskan = '-';
+
+            if (!empty($spk->npp_kepala_satker)) {
+                $token = $request->bearerToken();
+                $url = rtrim(env('BASE_URL'), '/') . "/api/masterdata/users/search-npps/{$spk->npp_kepala_satker}";
+
+                try {
+                    $response = Http::withToken($token)
+                        ->acceptJson()
+                        ->timeout(10)
+                        ->get($url);
+
+                    if ($response->successful()) {
+                        $data = $response->json();
+                        $namaMenugaskan = $data['data'][0]['name']
+                            ?? $data['data'][0]['nama']
+                            ?? $externalUser['name']
+                            ?? '-';
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Gagal ambil nama kepala satker: ' . $e->getMessage());
+                }
+            }
+
+
+            $namaStafDitugaskan = collect($spk->stafs ?? [])
+                ->pluck('nama')
+                ->implode(', ');
+
+
+
+            $this->addTimeline(
+                $spk->uuid_pengajuan,
+                'spk',
+                'SPK Ditugaskan',
+                'Ditugaskan',
+                'SPK ditugaskan oleh ' . $namaMenugaskan .
+                    ' kepada staf: ' . ($namaStafDitugaskan ?: '-')
+            );
+
+
+
 
             $penanggung_jawab = [
                 'name' => $spk->penanggung_jawab_name ?? '',
@@ -160,6 +262,18 @@ class SpkController extends Controller
                 FonnteService::sendMessage($tlpPelapor, $message);
             }
 
+            if ($pengajuan->npp_pelapor) {
+                InternalNotification::create([
+                    'uuid_pengajuan' => $pengajuan->uuid,
+                    'npp' => $pengajuan->npp_pelapor,
+                    'title' => 'SPK Ditugaskan',
+                    'judul' => 'Penugasan ',
+                    'pesan' => 'Pengajuan Anda telah ditugaskan oleh ' . $externalUser['name'],
+                    'status' => 'unread'
+                ]);
+            }
+
+
             foreach ($stafFinal as $staf) {
                 if ($staf['is_penanggung_jawab'] === true) {
                     continue;
@@ -169,7 +283,31 @@ class SpkController extends Controller
                     $messageStaff = FonnteMessageService::pesanUntukStaf($spk, $staf);
                     FonnteService::sendMessage($staf['tlp'], $messageStaff);
                 }
+
+                if ($pengajuan->uuid) {
+                    InternalNotification::create([
+                        'uuid_pengajuan' => $pengajuan->uuid,
+                        'npp' => $staf['npp'],
+                        'title' => 'Penugasan Baru',
+                        'judul' => 'Penugasan',
+                        'pesan' => "Anda ditugaskan dalam SPK: {$spk->no_surat}",
+                        'status' => 'unread'
+                    ]);
+                }
             }
+
+            if ($pengajuan->uuid) {
+                InternalNotification::create([
+                    'uuid_pengajuan' => $pengajuan->uuid,
+                    'npp' => $penanggung_jawab['npp'],
+                    'title' => 'Penanggung Jawab Baru',
+                    'judul' => 'Penugasan',
+                    'pesan' => "Anda telah ditugaskan menjadi PIC pada SPK: {$spk->no_surat}",
+                    'status' => 'unread'
+                ]);
+            }
+
+
             //pesan ke pic//
             if (!empty($penanggung_jawab['tlp'])) {
                 $messagePic = FonnteMessageService::pesanPenugasanPIC($spk, $penanggung_jawab, $listStaf);
@@ -180,18 +318,14 @@ class SpkController extends Controller
                 );
             }
             //pesan ke ygmenugaskan//
-            if (!empty($tlpMengetahui)) {
-
-                $messageMengetahui = FonnteMessageService::pesanUntukYangMenugaskan(
+            if (!empty($tlpYangMenugaskan)) {
+                $msgBoss = FonnteMessageService::pesanUntukYangMenugaskan(
                     $spk,
                     $listStaf,
                     $penanggung_jawab['name']
                 );
 
-                FonnteService::sendMessage(
-                    $tlpMengetahui,
-                    $messageMengetahui
-                );
+                FonnteService::sendMessage($tlpYangMenugaskan, $msgBoss);
             }
 
             return response()->json([
@@ -208,97 +342,252 @@ class SpkController extends Controller
     }
 
     //update status spk\\
-    public function updateByPenanggungJawab(Request $request, $uuid_pengajuan)
-{
-    try {
+    public function updateSpk(Request $request, $uuid_pengajuan)
+    {
+        try {
+            $externalUser = $request->attributes->get('external_user');
+            $cek = $this->checkPermission($externalUser, 'Workorder.spk.update');
+            if ($cek !== true) return $cek;
 
-        $externalUser = $request->attributes->get('external_user');
-        $cek = $this->checkPermission($externalUser, 'Workorder.spk.update');
-        if ($cek !== true) return $cek;
+            if (!$externalUser || empty($externalUser['npp'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Token tidak valid.'
+                ], 401);
+            }
 
-        if (!$externalUser) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Token tidak valid atau user eksternal tidak ditemukan.'
-            ], 401);
-        }
+            $npp = $externalUser['npp'];
 
-        $spk = Spk::where('uuid_pengajuan', $uuid_pengajuan)->firstOrFail();
+            $spk = Spk::where('uuid_pengajuan', $uuid_pengajuan)
+                ->where('is_deleted', 0)
+                ->firstOrFail();
 
-        if ($spk->penanggung_jawab_npp !== $externalUser['npp']) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Anda tidak memiliki izin untuk memperbarui SPK ini.'
-            ], 403);
-        }
-        $request->validate([
-            'status'               => 'nullable|string|in:Pending,Proses,Selesai',
-            'jenis_pekerjaan'      => 'nullable|string',
-            'kode_barang'          => 'nullable|string',
-            'uraian_pekerjaan'     => 'nullable|string',
-            'file'                 => 'nullable|string|min:1',
-            'ttd_pelaksana'        => 'nullable|',
+            $extractPath = fn($url) =>
+            $url ? ltrim(parse_url($url, PHP_URL_PATH), '/') : null;
 
-        ]);
-        $extractPath = function ($url) {
-            if (!$url) return null;
-            $parsed = parse_url($url);
-            return ltrim($parsed['path'] ?? $url, '/');
-        };
+            if ($spk->penanggung_jawab_npp === $npp) {
 
-        $filePaths = $request->file;
+                $request->validate([
+                    'status_id'            => 'required|exists:master_status,id',
+                    'jenis_pekerjaan_id'   => 'required|exists:masterjenispekerjaan,id',
+                    'kode_barang'          => 'nullable|string',
+                    'uraian_pekerjaan'     => 'nullable|string',
+                    'file'                 => 'nullable|array',
+                    'penanggung_jawab_ttd' => 'required|string',
 
-        if (is_string($filePaths)) {
-            $filePaths = str_replace(['[', ']', '"'], '', $filePaths);
-            $filePaths = array_filter(array_map('trim', explode(',', $filePaths)));
-        }
+                    'menyetujui'         => 'nullable|string',
+                    'menyetujui_name'    => 'nullable|string',
+                    'menyetujui_npp'     => 'nullable|string',
+                    'menyetujui_tlp'     => 'nullable|string',
 
-        $filePaths = array_map(fn($f) => $extractPath($f), $filePaths ?? []);
+                    'mengetahui'         => 'nullable|string',
+                    'mengetahui_name'    => 'nullable|string',
+                    'mengetahui_npp'     => 'nullable|string',
+                    'mengetahui_tlp'     => 'nullable|string',
 
-        $ttdPelaksana   = $request->ttd_pelaksana    ? $extractPath($request->ttd_pelaksana)    : $spk->ttd_pelaksana;
+                    'tanggal' => 'nullable|date',
+                ]);
 
-        $spk->update([
-            'status'               => $request->status ?? $spk->status,
-            'jenis_pekerjaan'      => $request->jenis_pekerjaan ?? $spk->jenis_pekerjaan,
-            'kode_barang'          => $request->kode_barang ?? $spk->kode_barang,
-            'uraian_pekerjaan'     => $request->uraian_pekerjaan ?? $spk->uraian_pekerjaan,
-            'file'                 => $filePaths ?: $spk->file,
-            'pelaksana'            => $spk->pelaksana ?? $externalUser['name'],
-            'pelaksana_npp'        => $spk->pelaksana_npp ?? $externalUser['npp'],
-            'ttd_pelaksana'        => $ttdPelaksana,
-        ]);
+                $extractPath = fn($url) =>
+                $url ? ltrim(parse_url($url, PHP_URL_PATH), '/') : null;
 
-            $pengajuan = Pengajuan::where('uuid', $spk->uuid_pengajuan)->first();
-            $tlpPelapor = $pengajuan->tlp_pelapor ?? null;
+                $filePaths = $request->file ?? $spk->file;
 
-            if (!empty($tlpPelapor)) {
-                $message = \App\Services\FonnteMessageService::pesanUpdateStatusPekerjaan($spk, $pengajuan);
+                $ttdpenanggungjawab = $request->penanggung_jawab_ttd
+                    ? $extractPath($request->penanggung_jawab_ttd)
+                    : $spk->penanggung_jawab_ttd;
 
-                \App\Services\FonnteService::sendMessage(
-                    $tlpPelapor,
-                    $message
+                $spk->update([
+                    'status_id'              => $request->status_id,
+                    'jenis_pekerjaan_id'     => $request->jenis_pekerjaan_id ?? $spk->jenis_pekerjaan_id,
+                    'kode_barang'            => $request->kode_barang ?? $spk->kode_barang,
+                    'uraian_pekerjaan'       => $request->uraian_pekerjaan ?? $spk->uraian_pekerjaan,
+                    'file'                   => $filePaths,
+                    'penanggung_jawab_ttd'   => $ttdpenanggungjawab,
+
+                    'menyetujui'           => $request->menyetujui      ?? $spk->menyetujui,
+                    'menyetujui_name'      => $request->menyetujui_name ?? $spk->menyetujui_name,
+                    'menyetujui_npp'       => $request->menyetujui_npp  ?? $spk->menyetujui_npp,
+                    'menyetujui_tlp'       => $request->menyetujui_tlp  ?? $spk->menyetujui_tlp,
+
+                    'mengetahui'           => $request->mengetahui      ?? $spk->mengetahui,
+                    'mengetahui_name'      => $request->mengetahui_name ?? $spk->mengetahui_name,
+                    'mengetahui_npp'       => $request->mengetahui_npp  ?? $spk->mengetahui_npp,
+                    'mengetahui_tlp'       => $request->mengetahui_tlp  ?? $spk->mengetahui_tlp,
+
+                    'tanggal'              => $request->tanggal ?? $spk->tanggal,
+                ]);
+
+                $namaPic = $spk->penanggung_jawab_name ?? 'PIC';
+
+
+                $this->addTimeline(
+                    $spk->uuid_pengajuan,
+                    'spk',
+                    'SPK Diperbarui oleh PIC',
+                    'updated',
+                    'SPK diperbarui oleh ' . $namaPic . ' '
                 );
+
+
+                // ntif menyetujui
+                if (!empty($spk->menyetujui_npp)) {
+
+                    if (!empty($spk->menyetujui_tlp)) {
+                        FonnteService::sendMessage(
+                            $spk->menyetujui_tlp,
+                            FonnteMessageService::notifMenyetujui($spk)
+                        );
+                    }
+
+                    InternalNotification::create([
+                        'uuid_pengajuan' => $spk->uuid_pengajuan,
+                        'npp'            => $spk->menyetujui_npp,
+                        'title'          => 'SPK Menunggu Persetujuan',
+                        'judul'          => 'Persetujuan SPK',
+                        'pesan'          => "Halo {$spk->menyetujui_name}, SPK menunggu tanda tangan Anda.",
+                        'status'         => 'unread'
+                    ]);
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'actor'   => 'PIC',
+                    'message' => 'SPK berhasil diperbarui & notifikasi dikirim.',
+                    'data'    => $spk->fresh()
+                ], 200);
+            }
+
+
+
+            $request->validate([
+                'ttd' => 'required|string'
+            ]);
+
+            $ttdPath = $extractPath($request->ttd);
+
+            //menyetujui
+            if ($spk->menyetujui_npp === $npp) {
+
+                if ($spk->menyetujui_ttd) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Mengetahui 1 sudah menandatangani.'
+                    ], 400);
+                }
+
+                $spk->update(['menyetujui_ttd' => $ttdPath]);
+                $namaMenyetujui = $spk->menyetujui_name ?? 'Pejabat Penyetuju';
+
+                $this->addTimeline(
+                    $spk->uuid_pengajuan,
+                    'spk',
+                    'Persetujuan SPK',
+                    'approved',
+                    'SPK telah disetujui oleh ' . $namaMenyetujui . '.'
+                );
+
+
+
+                // mengtahui ntif
+                if (!empty($spk->mengetahui_npp)) {
+
+                    if (!empty($spk->mengetahui_tlp)) {
+                        FonnteService::sendMessage(
+                            $spk->mengetahui_tlp,
+                            FonnteMessageService::notifMengetahui($spk)
+                        );
+                    }
+
+                    InternalNotification::create([
+                        'uuid_pengajuan' => $spk->uuid_pengajuan,
+                        'npp'   => $spk->mengetahui_npp,
+                        'title' => 'SPK Menunggu tanda Tangan Anda',
+                        'judul' => 'TTD SPK',
+                        'pesan' => "Halo {$spk->mengetahui_name}, SPK  menunggu tanda tangan Anda.",
+                        'status' => 'unread'
+                    ]);
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'actor' => 'menyetujui',
+                    'message' => 'TTD  berhasil.',
+                    'data' => $spk->fresh()
+                ], 200);
+            }
+
+            //mengetahui
+            if ($spk->mengetahui_npp === $npp) {
+
+                if ($spk->mengetahui_ttd) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Anda sudah menandatangani spk.'
+                    ], 400);
+                }
+
+                $spk->update(['mengetahui_ttd' => $ttdPath]);
+
+                $namaMengetahui = $spk->mengetahui_name ?? 'Pejabat Mengetahui';
+
+                $this->addTimeline(
+                    $spk->uuid_pengajuan,
+                    'spk',
+                    'TTD SPK',
+                    'signed',
+                    'SPK telah ditandatangani oleh ' . $namaMengetahui . '.'
+                );
+
+
+                //notif ke pelapor
+                $pengajuan = Pengajuan::where('uuid', $spk->uuid_pengajuan)->first();
+
+                if ($pengajuan) {
+
+                    if (!empty($pengajuan->tlp_pelapor)) {
+                        FonnteService::sendMessage(
+                            $pengajuan->tlp_pelapor,
+                            FonnteMessageService::notifSpkSelesai($spk, $pengajuan)
+                        );
+                    }
+
+                    InternalNotification::create([
+                        'uuid_pengajuan' => $pengajuan->uuid,
+                        'npp'   => $pengajuan->npp_pelapor,
+                        'title' => 'SPK Selesai',
+                        'judul' => 'SPK Disetujui',
+                        'pesan' => "Halo {$pengajuan->nama_pelapor}, SPK Anda telah disetujui oleh seluruh pihak.",
+                        'status' => 'unread'
+                    ]);
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'actor' => 'MENGETAHUI',
+                    'message' => 'SPK selesai & pelapor diberi notifikasi.',
+                    'data' => $spk->fresh()
+                ], 200);
             }
 
             return response()->json([
-                'success' => true,
-                'message' => 'SPK berhasil diperbarui & pelapor menerima notifikasi.',
-                'data' => $spk->fresh(),
-            ], 200);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-
-            return response()->json([
                 'success' => false,
-                'message' => 'Data SPK tidak ditemukan untuk UUID: ' . $uuid_pengajuan,
-            ], 404);
+                'message' => 'Anda tidak memiliki hak pada SPK ini.'
+            ], 403);
         } catch (\Exception $e) {
+            Log::error('Update SPK gagal', [
+                'uuid_pengajuan' => $uuid_pengajuan,
+                'error' => $e->getMessage()
+            ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
+                'message' => 'Terjadi kesalahan server'
             ], 500);
         }
     }
+
+
 
 
     //delete\\
@@ -347,7 +636,7 @@ class SpkController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $spk
+                'data' => $spk->fresh()->load('status', 'jenisPekerjaan'),
             ], 200);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
@@ -362,122 +651,56 @@ class SpkController extends Controller
         }
     }
 
-    // Riwayat SPK berdasarkan NPP yang pic\\
-    public function getSpkBypic($npp, Request $request)
+    public function getRiwayatSpk(Request $request)
     {
         try {
             $externalUser = $request->attributes->get('external_user');
             $cek = $this->checkPermission($externalUser, 'Workorder.spk.riwayat');
             if ($cek !== true) return $cek;
 
-            if (!$externalUser || !isset($externalUser['npp'])) {
+            if (!$externalUser || empty($externalUser['npp'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Token tidak valid atau NPP tidak ditemukan.'
+                    'message' => 'Token tidak valid.'
                 ], 401);
             }
 
-            $data = Spk::where('penanggung_jawab_npp', $npp)
-                ->where('is_deleted', 0)
+            $npp = $externalUser['npp'];
+
+            $spks = Spk::where('is_deleted', 0)
+                ->where(function ($q) use ($npp) {
+                    $q->where('penanggung_jawab_npp', $npp)
+                        ->orWhereJsonContains('stafs', [['npp' => $npp]]);
+                })
+                ->orderBy('created_at', 'desc')
                 ->get();
 
-            if ($data->isEmpty()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Data tidak ada atau kosong.',
-                    'data' => []
-                ], 200);
+            foreach ($spks as $spk) {
+                $stafMatches = collect($spk->stafs ?? [])
+                    ->where('npp', $npp);
+
+                if ($stafMatches->count() > 1) {
+                    Log::warning('Duplikasi NPP di staf SPK', [
+                        'uuid_pengajuan' => $spk->uuid_pengajuan,
+                        'npp'            => $npp,
+                        'count'          => $stafMatches->count()
+                    ]);
+                }
             }
 
             return response()->json([
                 'success' => true,
-                'message' => 'okkk.',
-                'data' => $data
+                'total'   => $spks->count(),
+                'data'    => $spks
             ], 200);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            Log::error('Riwayat SPK error', [
+                'message' => $e->getMessage()
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan server: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    //staf\\
-    public function getSpkBystaf($npp, Request $request)
-    {
-        try {
-            $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.spk.riwayat');
-            if ($cek !== true) return $cek;
-
-            if (!$externalUser || !isset($externalUser['npp'])) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Token tidak valid atau NPP tidak ditemukan.'
-                ], 401);
-            }
-
-            $data = Spk::where('is_deleted', 0)
-                ->whereJsonContains('stafs', [['npp' => $npp]])
-                ->get();
-
-            if ($data->isEmpty()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Data tidak ada atau kosong.',
-                    'data' => []
-                ], 200);
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'okkk.',
-                'data' => $data
-            ], 200);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Terjadi kesalahan server: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-
-    public function getSpkBymengetahui($npp, Request $request)
-    {
-        try {
-            $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.spk.riwayat');
-            if ($cek !== true) return $cek;
-
-            if (!$externalUser || !isset($externalUser['npp'])) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Token tidak valid atau NPP tidak ditemukan.'
-                ], 401);
-            }
-
-            $data = Spk::where('mengetahui_npp', $npp)
-                ->where('is_deleted', 0)
-                ->get();
-
-            if ($data->isEmpty()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Data tidak ada atau kosong.',
-                    'data' => []
-                ], 200);
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'okkk.',
-                'data' => $data
-            ], 200);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Terjadi kesalahan server: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan server'
             ], 500);
         }
     }
