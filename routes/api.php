@@ -131,10 +131,10 @@ Route::get('/workorder/permissions', function () {
                 "Workorder.view.history.ttd", // ini untuk melihat halaman history ttd
                 "Workorder.delete.history.ttd", // ini untuk menghapus history ttd
 
-                "workorder.view.laporan", // ini untuk melihat halaman laporan
-                "workorder.view.laporan.pengaturan.cetak", // ini untuk melihat pengaturan cetak laporan
+                "Workorder.view.laporan", // ini untuk melihat halaman laporan
+                "Workorder.view.laporan.pengaturan.cetak", // ini untuk melihat pengaturan cetak laporan
 
-                "workorder.spk.next", // ini untuk melanjutkan spk yg statusnya belum selesai
+                "Workorder.spk.next", // ini untuk melanjutkan spk yg statusnya belum selesai
             ]
         ]
     ]);

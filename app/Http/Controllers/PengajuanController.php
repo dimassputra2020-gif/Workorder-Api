@@ -330,17 +330,51 @@ class PengajuanController extends Controller
             }
 
 
-            $finalTtd = null;
-            if ($request->status !== 'rejected') {
-                $finalTtd = $this->extractPath($request->ttd_mengetahui);
-            }
+$extractPath = function ($url) {
+    if (!$url) return null;
+    $parsed = parse_url($url);
+    $path = $parsed['path'] ?? $url;
+    return ltrim($path, '/');
+};
+
+$mengetahuiNpp  = $externalUser['npp'] ?? null;
+$mengetahuiName = $externalUser['name'] ?? null;
+
+$cleanTtdMengetahui = null;
+
+if ($request->status !== 'rejected') {
+    $cleanTtdMengetahui = $extractPath($request->ttd_mengetahui);
+}
+
+if ($mengetahuiNpp && $cleanTtdMengetahui) {
+
+    $userMengetahui = User::where('npp', $mengetahuiNpp)->first();
+
+    if (!$userMengetahui) {
+        $userMengetahui = User::create([
+            'name'     => $mengetahuiName,
+            'npp'      => $mengetahuiNpp,
+            'ttd_path' => $cleanTtdMengetahui,
+        ]);
+    } else {
+        $userMengetahui->update([
+            'ttd_path' => $cleanTtdMengetahui,
+        ]);
+    }
+
+    // gunakan TTD dari tabel users sebagai final
+    $finalTtdMengetahui = $userMengetahui->ttd_path;
+} else {
+    $finalTtdMengetahui = null;
+}
 
 
-            $pengajuans->update([
-                'status'         => $request->status,
-                'catatan_status' => $request->status === 'rejected' ? $request->catatan_status : null,
-                'ttd_mengetahui' => $finalTtd,
-            ]);
+$pengajuans->update([
+    'status'         => $request->status,
+    'catatan_status' => $request->status === 'rejected' ? $request->catatan_status : null,
+    'ttd_mengetahui' => $finalTtdMengetahui,
+]);
+
 
 
             $namaUpdater = $pengajuans->mengetahui_name ?? 'Mengetahui';
@@ -355,6 +389,8 @@ class PengajuanController extends Controller
                     : 'Status diupdate menjadi ' . $request->status . ' oleh ' . $namaUpdater . '.'
             );
 
+
+            
 
 
             $pengajuans->update([
@@ -934,7 +970,7 @@ class PengajuanController extends Controller
     {
         try {
             $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.riwayat');
+            $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.riwayat.views');
             if ($cek !== true) return $cek;
 
             if (!$externalUser || empty($externalUser['npp'])) {

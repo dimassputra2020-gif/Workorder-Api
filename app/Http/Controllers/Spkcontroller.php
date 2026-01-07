@@ -9,7 +9,7 @@ use App\Models\Pengajuan;
 use App\Services\FonnteMessageService;
 use App\Services\FonnteService;
 use App\models\InternalNotification;
-use App\Models\MasterStatus;
+use App\Models\User;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
@@ -365,6 +365,35 @@ class SpkController extends Controller
             $extractPath = fn($url) =>
             $url ? ltrim(parse_url($url, PHP_URL_PATH), '/') : null;
 
+            $extractPath = function ($url) {
+    if (!$url) return null;
+    $parsed = parse_url($url);
+    return ltrim($parsed['path'] ?? $url, '/');
+};
+
+$syncUserTtd = function ($npp, $name, $ttd) use ($extractPath) {
+    if (!$npp || !$ttd) return null;
+
+    $cleanTtd = $extractPath($ttd);
+
+    $user = User::where('npp', $npp)->first();
+
+    if (!$user) {
+        $user = User::create([
+            'name'     => $name,
+            'npp'      => $npp,
+            'ttd_path' => $cleanTtd,
+        ]);
+    } else {
+        $user->update([
+            'ttd_path' => $cleanTtd
+        ]);
+    }
+
+    return $user->ttd_path;
+};
+
+
             if ($spk->penanggung_jawab_npp === $npp) {
 
                 $request->validate([
@@ -393,9 +422,14 @@ class SpkController extends Controller
 
                 $filePaths = $request->file ?? $spk->file;
 
-                $ttdpenanggungjawab = $request->penanggung_jawab_ttd
-                    ? $extractPath($request->penanggung_jawab_ttd)
-                    : $spk->penanggung_jawab_ttd;
+               $ttdpenanggungjawab = $request->penanggung_jawab_ttd
+    ? $syncUserTtd(
+        $externalUser['npp'],
+        $externalUser['name'] ?? 'PIC',
+        $request->penanggung_jawab_ttd
+    )
+    : $spk->penanggung_jawab_ttd;
+
 
                 $spk->update([
                     'status_id'              => $request->status_id,
@@ -476,7 +510,16 @@ class SpkController extends Controller
                     ], 400);
                 }
 
-                $spk->update(['menyetujui_ttd' => $ttdPath]);
+                $finalTtdMenyetujui = $syncUserTtd(
+    $externalUser['npp'],
+    $externalUser['name'] ?? $spk->menyetujui_name,
+    $request->ttd
+);
+
+$spk->update([
+    'menyetujui_ttd' => $finalTtdMenyetujui
+]);
+
                 $namaMenyetujui = $spk->menyetujui_name ?? 'Pejabat Penyetuju';
 
                 $this->addTimeline(
@@ -527,7 +570,16 @@ class SpkController extends Controller
                     ], 400);
                 }
 
-                $spk->update(['mengetahui_ttd' => $ttdPath]);
+               $finalTtdMengetahui = $syncUserTtd(
+    $externalUser['npp'],
+    $externalUser['name'] ?? $spk->mengetahui_name,
+    $request->ttd
+);
+
+$spk->update([
+    'mengetahui_ttd' => $finalTtdMengetahui
+]);
+
 
                 $namaMengetahui = $spk->mengetahui_name ?? 'Pejabat Mengetahui';
 
