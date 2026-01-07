@@ -1,0 +1,42 @@
+# version: "3.9"
+
+services:
+  #App Service (PHP)
+  app:
+    image: ${APP_IMAGE:-anggerpputro/php-laravel:8.3-fpm}
+    # image: anggerpputro/php-laravel:8.3-frankenphp-centos
+    container_name: "${APP_CONTAINER_NAME:-laravel-api-workorder-app}"
+    restart: unless-stopped
+    working_dir: /var/www
+    environment:
+      TZ: "${APP_TZ:-Asia/Jakarta}"
+      USER: "${DOCKER_USER:-gitlab-runner}"
+      UID: "${DOCKER_UID:-1000}"
+    expose:
+      - 80
+    # ports:
+    #     - "${APP_PORT_FORWARD:-8000}:80"
+    #     - "9000:8000"
+    volumes:
+      - ./:/var/www
+      - ${SHARED_BOOTSTRAP_CACHE_PATH}:/var/www/bootstrap/cache
+      - ${SHARED_STORAGE_PATH}:/var/www/storage
+      - ${SHARED_STORAGE_APP_PATH}:/var/www/storage/app
+      - ${SHARED_STORAGE_FRAMEWORK_PATH}:/var/www/storage/framework
+      - ${SHARED_STORAGE_LOGS_PATH}:/var/www/storage/logs
+      # - ./docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini:ro
+      # - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ${SHARED_DOCKER_LOG_PATH}/nginx:/var/log/nginx
+      - ${SHARED_DOCKER_LOG_PATH}/php:/var/log/php
+      - ${SUPERVISORD_CONFIG_PATH}:/etc/supervisord.conf:ro
+      - ${SHARED_DOCKER_LOG_PATH}/supervisord:/var/log/supervisord
+    networks:
+      - pdam
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+networks:
+  pdam:
+    name: pdam
+    external: true
