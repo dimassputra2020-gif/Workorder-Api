@@ -555,7 +555,7 @@ $pengajuans->update([
 
             $request->validate([
                 'hal_id'       => 'sometimes|exists:masterhal,id',
-                'kepada'       => 'nullable|string',
+                'kd_satker'       => 'nullable|string',
                 'satker'       => 'nullable|string',
                 'kode_barang'  => 'nullable|string',
                 'keterangan'   => 'nullable|string',
@@ -578,7 +578,7 @@ $pengajuans->update([
                 }
             }
 
-            if ($request->filled('kepada')) $pengajuan->kepada = $request->kepada;
+            if ($request->filled('kd_satker')) $pengajuan->kepada = $request->kepada;
             if ($request->filled('satker')) $pengajuan->satker = $request->satker;
             if ($request->filled('kode_barang')) $pengajuan->kode_barang = $request->kode_barang;
             if ($request->filled('keterangan')) $pengajuan->keterangan = $request->keterangan;
