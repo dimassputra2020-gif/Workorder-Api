@@ -22,3 +22,9 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+supervisord.pid
+
+/caddy
+frankenphp
+frankenphp-worker.php
+docker-compose.yml
