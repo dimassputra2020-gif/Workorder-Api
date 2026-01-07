@@ -984,8 +984,8 @@ $pengajuans->update([
 
             $data = Pengajuan::where('is_deleted', 0)
                 ->where(function ($q) use ($npp) {
-                    $q->where('npp_pelapor', $npp)
-                        ->orWhere('mengetahui_npp', $npp);
+                    $q->where('npp_pelapor', $npp);
+                       
                 })
                 ->orderBy('created_at', 'desc')
                 ->get();
