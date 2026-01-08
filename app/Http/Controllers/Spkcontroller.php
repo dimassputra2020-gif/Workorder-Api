@@ -707,7 +707,7 @@ $spk->update([
     {
         try {
             $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.spk.riwayat');
+            $cek = $this->checkPermission($externalUser, 'Workorder.spk.riwayat.views');
             if ($cek !== true) return $cek;
 
             if (!$externalUser || empty($externalUser['npp'])) {
@@ -743,7 +743,7 @@ $spk->update([
             return response()->json([
                 'success' => true,
                 'total'   => $spks->count(),
-                'data'    => $spks
+                'data'    => $spks->fresh()->load('status', 'jenisPekerjaan'),
             ], 200);
         } catch (\Throwable $e) {
             Log::error('Riwayat SPK error', [

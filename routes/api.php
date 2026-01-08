@@ -69,14 +69,10 @@ Route::middleware(['check.external.token'])->group(function () {
 
 //tracking//
 Route::middleware(['check.external.token'])->group(function () {
-    Route::get('/user/tracking/nosurat/{no_surat}', [TrackingController::class, 'getByNoSurat'])
-        ->where('no_surat', '.*');
-    Route::get('/user/tracking/uuid/{uuid}', [TrackingController::class, 'tracking']);
-});
-
-Route::get('/tracking/nosurat/{no_surat}', [TrackingController::class, 'getByNoSurat'])
+   Route::get('/tracking/nosurat/{no_surat}', [TrackingController::class, 'getByNoSurat'])
         ->where('no_surat', '.*');
     Route::get('/tracking/uuid/{uuid}', [TrackingController::class, 'tracking']);
+});
 
 //notif//
 Route::middleware(['check.external.token'])->group(function () {
