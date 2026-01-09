@@ -2,54 +2,109 @@
 
 namespace App\Helpers;
 
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class PermissionStore
 {
-    private static $path;
+    private static $apiUrl = 'https://gateway.pdamkotasmg.co.id/api-gw/portal-pegawai/api/auth/permission-names';
 
-    private static function getPath()
+    /**
+     * Get bearer token from Authorization header
+     */
+    private static function getBearerToken()
     {
-        if (!self::$path) {
-            self::$path = __DIR__ . '/../../storage/app/permissions.json';
-        }
-        return self::$path;
+        return request()->header('Authorization');
     }
 
+    /**
+     * Fetch permissions from API
+     */
+    private static function fetchFromApi()
+    {
+        try {
+            $token = self::getBearerToken();
+
+            if (!$token) {
+                Log::warning('PermissionStore: No authorization token available');
+                return [];
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => $token, // Token sudah include "Bearer " prefix
+                'Accept' => 'application/json',
+            ])->timeout(10)->get(self::$apiUrl);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                if (isset($data['data']['permissions']) && is_array($data['data']['permissions'])) {
+                    return $data['data']['permissions'];
+                }
+            }
+
+            Log::error('PermissionStore: API request failed', [
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
+
+            return [];
+
+        } catch (\Exception $e) {
+            Log::error('PermissionStore: Exception when fetching permissions', [
+                'message' => $e->getMessage()
+            ]);
+            return [];
+        }
+    }
+
+    /**
+     * Load permissions from API
+     */
     public static function load()
     {
-        $path = self::getPath();
-        
-        if (!file_exists($path)) {
-            file_put_contents($path, json_encode([]));
+        $token = self::getBearerToken();
+
+        if (!$token) {
             return [];
         }
 
-        $content = file_get_contents($path);
-        $data = json_decode($content, true);
-        
-        return is_array($data) ? $data : [];
+        return self::fetchFromApi();
     }
 
-    public static function save($data)
+    /**
+     * Legacy method for backward compatibility
+     * Now returns all permissions for current user
+     */
+    public static function getPermissionsFor($npp = null)
     {
-        $path = self::getPath();
-        $json_data = json_encode($data, JSON_PRETTY_PRINT);
-        
-        file_put_contents($path, $json_data); 
+        return self::load();
     }
 
-    public static function setPermissions($npp, $permissions)
+    /**
+     * Check if user has specific permission
+     */
+    public static function hasPermission($permission)
     {
-        $data = self::load();
-        $data[$npp] = $permissions;
-        self::save($data);
+        $permissions = self::load();
+        return in_array($permission, $permissions);
     }
 
-    public static function getPermissionsFor($npp)
+    /**
+     * Check if user has any of the given permissions
+     */
+    public static function hasAnyPermission(array $permissions)
     {
-        $data = self::load();
-        return $data[$npp] ?? [];
+        $userPermissions = self::load();
+        return !empty(array_intersect($permissions, $userPermissions));
+    }
+
+    /**
+     * Check if user has all of the given permissions
+     */
+    public static function hasAllPermissions(array $permissions)
+    {
+        $userPermissions = self::load();
+        return empty(array_diff($permissions, $userPermissions));
     }
 }
-
