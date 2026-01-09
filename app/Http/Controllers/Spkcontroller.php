@@ -57,7 +57,7 @@ class SpkController extends Controller
     {
         try {
             $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.spk.views');
+            $cek = $this->checkPermission($externalUser, 'workorder-pti.spk.views');
             if ($cek !== true) return $cek;
 
             $npp = $externalUser['npp'] ?? null;
@@ -107,7 +107,7 @@ class SpkController extends Controller
         try {
 
             $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.spk.menugaskan');
+            $cek = $this->checkPermission($externalUser, 'workorder-pti.spk.menugaskan');
             if ($cek !== true) return $cek;
 
             if (!$externalUser) {
@@ -346,7 +346,7 @@ class SpkController extends Controller
     {
         try {
             $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.spk.update');
+            $cek = $this->checkPermission($externalUser, 'workorder-pti.spk.update');
             if ($cek !== true) return $cek;
 
             if (!$externalUser || empty($externalUser['npp'])) {
@@ -647,7 +647,7 @@ $spk->update([
     {
         try {
             $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.spk.delete');
+            $cek = $this->checkPermission($externalUser, 'workorder-pti.spk.delete');
             if ($cek !== true) return $cek;
 
             $spk = Spk::where('uuid_pengajuan', $uuid_pengajuan)->firstOrFail();
@@ -679,7 +679,7 @@ $spk->update([
     {
         try {
             $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.spk.view');
+            $cek = $this->checkPermission($externalUser, 'workorder-pti.spk.view');
             if ($cek !== true) return $cek;
 
             $spk = \App\Models\Spk::where('uuid_pengajuan', $uuid_pengajuan)
@@ -707,7 +707,7 @@ $spk->update([
     {
         try {
             $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.spk.riwayat.views');
+            $cek = $this->checkPermission($externalUser, 'workorder-pti.spk.riwayat.views');
             if ($cek !== true) return $cek;
 
             if (!$externalUser || empty($externalUser['npp'])) {

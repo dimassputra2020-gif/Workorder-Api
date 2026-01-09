@@ -64,7 +64,7 @@ class PengajuanController extends Controller
     {
         try {
             $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.create');
+            $cek = $this->checkPermission($externalUser, 'workorder-pti.pengajuan.create');
             if ($cek !== true) return $cek;
 
             if (!$externalUser) {
@@ -284,7 +284,7 @@ class PengajuanController extends Controller
     {
         try {
             $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.approval');
+            $cek = $this->checkPermission($externalUser, 'workorder-pti.pengajuan.approval');
             if ($cek !== true) return $cek;
 
             if (!$externalUser) {
@@ -541,7 +541,7 @@ class PengajuanController extends Controller
     {
         try {
             $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.edit');
+            $cek = $this->checkPermission($externalUser, 'workorder-pti.pengajuan.edit');
             if ($cek !== true) return $cek;
 
             $pengajuan = Pengajuan::where('uuid', $uuid)->first();
@@ -685,7 +685,7 @@ class PengajuanController extends Controller
     {
         try {
             $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.delete');
+            $cek = $this->checkPermission($externalUser, 'workorder-pti.pengajuan.delete');
             if ($cek !== true) return $cek;
 
             $pengajuan = Pengajuan::where('uuid', $uuid)->firstOrFail();
@@ -726,7 +726,7 @@ class PengajuanController extends Controller
     public function index(Request $request)
     {
         $externalUser = $request->attributes->get('external_user');
-        $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.views');
+        $cek = $this->checkPermission($externalUser, 'workorder-pti.pengajuan.views');
         if ($cek !== true) return $cek;
 
         $npp = $externalUser['npp'];
@@ -749,7 +749,7 @@ class PengajuanController extends Controller
     {
         try {
             $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.view');
+            $cek = $this->checkPermission($externalUser, 'workorder-pti.pengajuan.view');
             if ($cek !== true) return $cek;
 
             $pengajuan = \App\Models\Pengajuan::where('uuid', $uuid)
@@ -1021,7 +1021,7 @@ class PengajuanController extends Controller
     {
         try {
             $externalUser = $request->attributes->get('external_user');
-            $cek = $this->checkPermission($externalUser, 'Workorder.pengajuan.riwayat.views');
+            $cek = $this->checkPermission($externalUser, 'workorder-pti.pengajuan.riwayat.views');
             if ($cek !== true) return $cek;
 
             if (!$externalUser || empty($externalUser['npp'])) {

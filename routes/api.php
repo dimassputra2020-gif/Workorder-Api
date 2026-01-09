@@ -99,38 +99,38 @@ Route::get('/workorder/permissions', function () {
         "message" => "OK",
         "data" => [
             "permissions" => [
-                "Workorder.pengajuan.create", // ini untuk membuat pengajuan
-                "Workorder.pengajuan.edit",  // ini untuk mengedit pengajuan
-                "Workorder.pengajuan.delete",  // ini untuk menghapus pengajuan
-                "Workorder.pengajuan.view",  // ini untuk melihat detail pengajuan
-                "Workorder.pengajuan.views",  // ini untuk melihat list pengajuan
-                "Workorder.pengajuan.riwayat.views", // ini untuk melihat list riwayat pengajuan (untuk pelapor dan yg mengetahui)
-                "Workorder.pengajuan.riwayat.view", // ini untuk melihat detail riwayat pengajuan (untuk pelapor dan yg mengetahui)
-                "Workorder.pengajuan.riwayat.delete", // ini untuk menghapus riwayat pengajuan (untuk pelapor dan yg mengetahui)
-                "Workorder.pengajuan.riwayat.edit", // ini untuk mengedit riwayat pengajuan (untuk pelapor dan yg mengetahui)
-                "Workorder.pengajuan.approval", // ini untuk menyetujui atau menolak pengajuan (untuk yg mengetahui)
+                "workorder-pti.pengajuan.create", // ini untuk membuat pengajuan
+                "workorder-pti.pengajuan.edit",  // ini untuk mengedit pengajuan
+                "workorder-pti.pengajuan.delete",  // ini untuk menghapus pengajuan
+                "workorder-pti.pengajuan.view",  // ini untuk melihat detail pengajuan
+                "workorder-pti.pengajuan.views",  // ini untuk melihat list pengajuan
+                "workorder-pti.pengajuan.riwayat.views", // ini untuk melihat list riwayat pengajuan (untuk pelapor dan yg mengetahui)
+                "workorder-pti.pengajuan.riwayat.view", // ini untuk melihat detail riwayat pengajuan (untuk pelapor dan yg mengetahui)
+                "workorder-pti.pengajuan.riwayat.delete", // ini untuk menghapus riwayat pengajuan (untuk pelapor dan yg mengetahui)
+                "workorder-pti.pengajuan.riwayat.edit", // ini untuk mengedit riwayat pengajuan (untuk pelapor dan yg mengetahui)
+                "workorder-pti.pengajuan.approval", // ini untuk menyetujui atau menolak pengajuan (untuk yg mengetahui)
 
-                "Workorder.spk.menugaskan", // ini untuk menugaskan spk (kasub)
-                "Workorder.spk.update", // ini untuk mengupdate spk (pic, kasub, kabid)
-                "Workorder.spk.views", // ini untuk melihat list spk (pic, kasub, kabid)
-                "Workorder.spk.view",  // ini untuk melihat detail spk (pic, kasub, kabid)
-                "Workorder.spk.delete", // ini untuk menghapus spk (pic, kasub, kabid)
-                "Workorder.spk.riwayat.views", // ini untuk melihat list riwayat spk (pic,staf)
-                "Workorder.spk.riwayat.delete", // ini untuk menghapus riwayat spk (pic,staf)
-                "Workorder.spk.riwayat.view", // ini untuk melihat detail riwayat spk (pic,staf)
-                "Workorder.spk.riwayat.edit", // ini untuk mengedit riwayat spk (pic,staf)
+                "workorder-pti.spk.menugaskan", // ini untuk menugaskan spk (kasub)
+                "workorder-pti.spk.update", // ini untuk mengupdate spk (pic, kasub, kabid)
+                "workorder-pti.spk.views", // ini untuk melihat list spk (pic, kasub, kabid)
+                "workorder-pti.spk.view",  // ini untuk melihat detail spk (pic, kasub, kabid)
+                "workorder-pti.spk.delete", // ini untuk menghapus spk (pic, kasub, kabid)
+                "workorder-pti.spk.riwayat.views", // ini untuk melihat list riwayat spk (pic,staf)
+                "workorder-pti.spk.riwayat.delete", // ini untuk menghapus riwayat spk (pic,staf)
+                "workorder-pti.spk.riwayat.view", // ini untuk melihat detail riwayat spk (pic,staf)
+                "workorder-pti.spk.riwayat.edit", // ini untuk mengedit riwayat spk (pic,staf)
 
-                "Workorder.view.dashboard", // ini untuk melihat data di dashboard
-                "Workorder.Admin",  // ini untuk akses semua fitur di workorder (halmn admin)
-                "Workorder.view.pengaturan", // ini untuk melihat halaman pengaturan
-                "Workorder.view.pengaturan.profil", // ini untuk melihat halaman pengaturan profil
-                "Workorder.view.history.ttd", // ini untuk melihat halaman history ttd
-                "Workorder.delete.history.ttd", // ini untuk menghapus history ttd
+                "workorder-pti.view.dashboard", // ini untuk melihat data di dashboard
+                "workorder-pti.Admin",  // ini untuk akses semua fitur di workorder (halmn admin)
+                "workorder-pti.view.pengaturan", // ini untuk melihat halaman pengaturan
+                "workorder-pti.view.pengaturan.profil", // ini untuk melihat halaman pengaturan profil
+                "workorder-pti.view.history.ttd", // ini untuk melihat halaman history ttd
+                "workorder-pti.delete.history.ttd", // ini untuk menghapus history ttd
 
-                "Workorder.view.laporan", // ini untuk melihat halaman laporan
-                "Workorder.view.laporan.pengaturan.cetak", // ini untuk melihat pengaturan cetak laporan
+                "workorder-pti.view.laporan", // ini untuk melihat halaman laporan
+                "workorder-pti.view.laporan.pengaturan.cetak", // ini untuk melihat pengaturan cetak laporan
 
-                "Workorder.spk.next", // ini untuk melanjutkan spk yg statusnya belum selesai
+                "workorder-pti.spk.next", // ini untuk melanjutkan spk yg statusnya belum selesai
             ]
         ]
     ]);
