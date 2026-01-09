@@ -8,7 +8,7 @@ use App\Models\Pengajuan;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use App\Models\Spk;
-use App\Models\user;
+use App\Models\User;
 use App\Models\MasterHal;
 use Illuminate\Support\Facades\Http;
 
@@ -279,7 +279,7 @@ class PengajuanController extends Controller
     }
 
 
-    //update status\\ 
+    //update status\\
     public function updateStatus(Request $request, $uuid)
     {
         try {
