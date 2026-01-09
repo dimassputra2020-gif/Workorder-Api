@@ -10,6 +10,19 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
+    // Konstanta global untuk status
+    const PENGAJUAN_STATUS_LIST = ['pending', 'approved', 'rejected'];
+
+    const SPK_STATUS_MAP = [
+        'Selesai'        => 1,
+        'Belum Selesai'  => 2,
+        'Tidak Selesai'  => 3,
+        'menunggu'       => 4,
+        'Proses'         => 5,
+    ];
+
+    const SPK_STATUS_LIST = ['menunggu', 'Proses', 'Selesai', 'Belum Selesai', 'Tidak Selesai'];
+
     public function index(Request $request)
     {
         $startDate = null;
@@ -65,14 +78,6 @@ class DashboardController extends Controller
                 : null;
         }
 
-        $spkStatusMap = [
-            'Selesai'        => 1,
-            'Belum Selesai'  => 2,
-            'Tidak Selesai'  => 3,
-            'menunggu'       => 4,
-            'Proses'         => 5,
-        ];
-
         $pengajuanQuery = Pengajuan::where('is_deleted', 0);
         $spkQuery       = Spk::where('is_deleted', 0);
 
@@ -85,23 +90,21 @@ class DashboardController extends Controller
         $totalSpk       = $spkQuery->count();
         $totalSemua     = $totalPengajuan + $totalSpk;
 
-        $pengajuanStatusList = ['pending', 'approved', 'rejected'];
         $pengajuanStatusSummary = [];
 
-        foreach ($pengajuanStatusList as $status) {
+        foreach (self::PENGAJUAN_STATUS_LIST as $status) {
             $p = clone $pengajuanQuery;
             $pengajuanStatusSummary[$status] = [
                 'total' => $p->where('status', $status)->count(),
             ];
         }
 
-        $spkStatusList = ['menunggu', 'Proses', 'Selesai', 'Belum Selesai', 'Tidak Selesai'];
         $spkStatusSummary = [];
 
-        foreach ($spkStatusList as $status) {
+        foreach (self::SPK_STATUS_LIST as $status) {
             $s = clone $spkQuery;
             $spkStatusSummary[$status] = [
-                'total' => $s->where('status_id', $spkStatusMap[$status])->count(),
+                'total' => $s->where('status_id', self::SPK_STATUS_MAP[$status])->count(),
             ];
         }
 
@@ -186,12 +189,10 @@ class DashboardController extends Controller
                 ->whereBetween('created_at', [$prevStart, $prevEnd])
                 ->count();
 
-            $pengajuanStatusList = ['pending', 'approved', 'rejected'];
-
             $pengajuanStatusCurrent = [];
             $pengajuanStatusPrev    = [];
 
-            foreach ($pengajuanStatusList as $status) {
+            foreach (self::PENGAJUAN_STATUS_LIST as $status) {
                 $pengajuanStatusCurrent[$status] = Pengajuan::where('is_deleted', 0)
                     ->where('status', $status)
                     ->whereBetween('created_at', [$startDate, $endDate])
@@ -203,13 +204,11 @@ class DashboardController extends Controller
                     ->count();
             }
 
-            $spkStatusList = ['menunggu', 'Proses', 'Selesai', 'Belum Selesai', 'Tidak Selesai'];
-
             $spkStatusCurrent = [];
             $spkStatusPrev    = [];
 
-            foreach ($spkStatusList as $status) {
-                $statusId = $spkStatusMap[$status];
+            foreach (self::SPK_STATUS_LIST as $status) {
+                $statusId = self::SPK_STATUS_MAP[$status];
 
                 $spkStatusCurrent[$status] = Spk::where('is_deleted', 0)
                     ->where('status_id', $statusId)
