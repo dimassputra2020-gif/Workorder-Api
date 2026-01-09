@@ -7,8 +7,6 @@ use Illuminate\Support\Facades\Log;
 
 class PermissionStore
 {
-    private static $apiUrl = 'https://gateway.pdamkotasmg.co.id/api-gw/portal-pegawai/api/auth/permission-names';
-
     /**
      * Get bearer token from Authorization header
      */
@@ -33,7 +31,7 @@ class PermissionStore
             $response = Http::withHeaders([
                 'Authorization' => $token, // Token sudah include "Bearer " prefix
                 'Accept' => 'application/json',
-            ])->timeout(10)->get(self::$apiUrl);
+            ])->timeout(10)->get(rtrim(env('BASE_URL'), '/') . '/api/auth/permission-names');
 
             if ($response->successful()) {
                 $data = $response->json();
