@@ -3,6 +3,11 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 
+// Tambahkan di sini, sebelum define('LARAVEL_START')
+set_time_limit(300); // 5 menit
+ini_set('max_execution_time', '300');
+ini_set('memory_limit', '512M'); // bonus: naikin memory limit juga
+
 define('LARAVEL_START', microtime(true));
 
 // Determine if the application is in maintenance mode...
