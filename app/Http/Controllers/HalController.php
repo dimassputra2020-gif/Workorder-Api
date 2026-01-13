@@ -8,10 +8,12 @@ use Illuminate\Support\Facades\Http;
 
 class HalController extends Controller
 {
+
     public function index(Request $request)
     {
+        ini_set('memory_limit', '512M');
         try {
-           
+
             $token = $request->header('Authorization');
 
             if (!$token) {
