@@ -18,15 +18,18 @@ return Application::configure(basePath: dirname(__DIR__))
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             'throttle:api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
-       
+
+        ]);
+
+        $middleware->api(prepend: [
+            \App\Http\Middleware\Cors::class,
         ]);
 
         $middleware->alias([
-            
-            'auth' => \App\Http\Middleware\Authenticate::class,
-            'check.external.token' =>\App\Http\Middleware\CheckExternalToken::class, 
-            'permission' => \App\Http\Middleware\CheckPermission::class,
 
+            'auth' => \App\Http\Middleware\Authenticate::class,
+            'check.external.token' =>\App\Http\Middleware\CheckExternalToken::class,
+            'permission' => \App\Http\Middleware\CheckPermission::class,
 
         ]);
     })
