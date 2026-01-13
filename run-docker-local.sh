@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-echo "Copying .env.dev to .env..."
-cp .env.dev .env
+echo "Copying .env.local to .env..."
+cp .env.local .env
 
-echo "Copying docker-compose.prod.yml to docker-compose.yml..."
-cp docker-compose.prod.yml docker-compose.yml
+echo "Copying docker-compose.windows.yml to docker-compose.yml..."
+cp docker-compose.windows.yml docker-compose.yml
 
 echo "Building docker compose..."
 docker compose up -d --build --remove-orphans --wait --timestamps

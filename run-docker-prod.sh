@@ -22,7 +22,7 @@ docker compose exec app php artisan route:clear
 docker compose exec app bash -c "chmod -R 777 storage/"
 docker compose exec app bash -c "chmod -R 777 vendor/"
 docker compose exec app php artisan key:generate --force
-docker compose exec app php artisan config:cache
+# docker compose exec app php artisan config:cache
 docker compose exec app php artisan route:cache
 
 echo "Docker compose finished..."
