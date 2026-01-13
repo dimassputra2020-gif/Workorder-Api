@@ -21,10 +21,6 @@ return Application::configure(basePath: dirname(__DIR__))
 
         ]);
 
-        $middleware->api(prepend: [
-            \App\Http\Middleware\Cors::class,
-        ]);
-
         $middleware->alias([
 
             'auth' => \App\Http\Middleware\Authenticate::class,
