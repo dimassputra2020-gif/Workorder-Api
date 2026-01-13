@@ -8,9 +8,9 @@ use Illuminate\Cache\RateLimiting\Limit;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__.'/../routes/web.php',
-        api: __DIR__.'/../routes/api.php',
-        commands: __DIR__.'/../routes/console.php',
+        web: __DIR__ . '/../routes/web.php',
+        api: __DIR__ . '/../routes/api.php',
+        commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
@@ -24,9 +24,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
 
             'auth' => \App\Http\Middleware\Authenticate::class,
-            'check.external.token' =>\App\Http\Middleware\CheckExternalToken::class,
-            'permission' => \App\Http\Middleware\CheckPermission::class,
+            'check.external.token' => \App\Http\Middleware\CheckExternalToken::class,
+            // 'permission' => \App\Http\Middleware\CheckPermission::class,
 
+            'token-validated' => \Gemboot\Middleware\TokenValidated::class,
+            'token-validated-client' => \App\Http\Middleware\TokenValidatedClient::class,
+            'role' => \Gemboot\Middleware\HasRole::class,
+            'permission' => \Gemboot\Middleware\HasPermissionTo::class,
         ]);
     })
 
