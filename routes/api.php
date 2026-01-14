@@ -16,14 +16,14 @@ use App\Http\Controllers\NotifController;
 use App\Http\Controllers\PermissionController;
 
 
-Route::middleware(['check.external.token', 'role:pegawai-aktif'])->group(function () {
+Route::middleware(['check.external.token'])->group(function () {
     Route::get('/satker', [SatkerController::class, 'getSatker']);
     Route::get('/user/tlp/{npp}', [SatkerController::class, 'getTlpByNpp']);
 });
 
 
 
-Route::middleware(['check.external.token', 'role:pegawai-aktif'])->group(function () {
+Route::middleware(['check.external.token'])->group(function () {
     Route::post('/pengajuan', [PengajuanController::class, 'store']);
     Route::put('/pengajuan/{uuid}/status', [PengajuanController::class, 'updateStatus']);
     Route::put('/pengajuan/edit/{uuid}', [PengajuanController::class, 'edit']);
@@ -41,7 +41,7 @@ Route::middleware(['check.external.token', 'role:pegawai-aktif'])->group(functio
 });
 
 //master//
-Route::middleware(['check.external.token', 'role:pegawai-aktif'])->group(function () {
+Route::middleware(['check.external.token'])->group(function () {
     Route::get('/hal', [HalController::class, 'index']);
     Route::get('/master-jenis-pekerjaan', [MasterJenisPekerjaanController::class, 'index']);
     Route::get('/master/status/spk', [MasterStatusController::class, 'index']);
@@ -49,7 +49,7 @@ Route::middleware(['check.external.token', 'role:pegawai-aktif'])->group(functio
 
 
 //====SPK===\\
-Route::middleware(['check.external.token', 'role:pegawai-aktif'])->group(function () {
+Route::middleware(['check.external.token'])->group(function () {
     Route::post('/spk/menugaskan', [SpkController::class, 'menugaskan']);
     Route::put('/spk/update/{uuid_pengajuan}', [SpkController::class, 'updateSpk']);
     Route::get('/spk/views/data', [SPKController::class, 'index']);
@@ -65,14 +65,14 @@ Route::middleware(['check.external.token', 'role:pegawai-aktif'])->group(functio
 });
 
 //tracking//
-Route::middleware(['check.external.token', 'role:pegawai-aktif'])->group(function () {
+Route::middleware(['check.external.token'])->group(function () {
     Route::get('/tracking/nosurat/{no_surat}', [TrackingController::class, 'getByNoSurat'])
         ->where('no_surat', '.*');
     Route::get('/tracking/uuid/{uuid}', [TrackingController::class, 'tracking']);
 });
 
 //notif//
-Route::middleware(['check.external.token', 'role:pegawai-aktif'])->group(function () {
+Route::middleware(['check.external.token'])->group(function () {
     Route::put('/notifications/update/{id}', [NotifController::class, 'update']);
     Route::get('/notifications/all/{npp}', [NotifController::class, 'getAllNotifications']);
     Route::put('/notifications/update/all/{npp}', [NotifController::class, 'markAllAsRead']);
@@ -81,11 +81,11 @@ Route::middleware(['check.external.token', 'role:pegawai-aktif'])->group(functio
   Route::get('/notifications/{npp}', [NotifController::class, 'getNotifications']);
 
 //dashboard//
-Route::middleware(['check.external.token', 'role:pegawai-aktif'])->group(function () {
+Route::middleware(['check.external.token'])->group(function () {
     Route::get('/dashboard/data', [DashboardController::class, 'index']);
 });
 
-Route::middleware(['check.external.token', 'role:pegawai-aktif'])->group(function () {
+Route::middleware(['check.external.token'])->group(function () {
     Route::get('/report/data/pengajuan', [ReportController::class, 'pengajuan']);
     Route::get('/report/data/spk', [ReportController::class, 'spk']);
 });
@@ -132,7 +132,7 @@ Route::get('/workorder/permissions', function () {
         ]
     ]);
 });
-Route::middleware(['check.external.token', 'role:pegawai-aktif'])->group(function () {
+Route::middleware(['check.external.token'])->group(function () {
     Route::post(
         '/workorder/permissions/set',
         [PermissionController::class, 'setPermissions']
