@@ -20,7 +20,7 @@ class NotifController extends Controller
                 ], 401);
             }
 
-            $baseUrl = 'https://gateway.pdamkotasmg.co.id/api-gw/portal-pegawai';
+            $baseUrl = 'https://gateway.pdamkotasmg.co.id/api-gw-dev/portal-pegawai';
             $response = \Illuminate\Support\Facades\Http::withToken($token)
                 ->get($baseUrl . '/api/auth/me');
 
