@@ -11,10 +11,10 @@ use App\Http\Controllers\SatkerController;
 use App\Http\Controllers\TrackingController;
 use App\Helpers\PermissionStore;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\ReportController;
 use App\Http\Controllers\NotifController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\PermissionController;
-
+use Mockery\Matcher\Not;
 
 Route::middleware(['check.external.token'])->group(function () {
     Route::get('/satker', [SatkerController::class, 'getSatker']);
@@ -75,7 +75,7 @@ Route::middleware(['check.external.token'])->group(function () {
 Route::middleware(['check.external.token'])->group(function () {
     Route::put('/notifications/update/{id}', [NotifController::class, 'update']);
     Route::get('/notifications/all/{npp}', [NotifController::class, 'getAllNotifications']);
-    Route::put('/notifications/update/all/{npp}', [NotifController::class, 'markAllAsRead']);
+    Route::put('/notifications/update/all/{npp}', [NotifConttroller::class, 'markAllAsRead']);
 });
 
   Route::get('/notifications/{npp}', [NotifController::class, 'getNotifications']);
