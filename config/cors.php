@@ -35,6 +35,7 @@ return [
     // Sumber domain yang diizinkan (kalau masih dev / testing, ini paling longgar)
     'allowed_origins' => [
         '*',
+        'http://localhost:3000'
     ],
 
     // Kalau mau pakai regex pattern origins (opsional)
