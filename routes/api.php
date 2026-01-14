@@ -73,11 +73,12 @@ Route::middleware(['token-validated', 'check.external.token', 'role:pegawai-akti
 
 //notif//
 Route::middleware(['token-validated', 'check.external.token', 'role:pegawai-aktif'])->group(function () {
-    Route::get('/notifications/{npp}', [NotifController::class, 'getNotifications']);
     Route::put('/notifications/update/{id}', [NotifController::class, 'update']);
     Route::get('/notifications/all/{npp}', [NotifController::class, 'getAllNotifications']);
     Route::put('/notifications/update/all/{npp}', [NotifController::class, 'markAllAsRead']);
 });
+
+  Route::get('/notifications/{npp}', [NotifController::class, 'getNotifications']);
 
 //dashboard//
 Route::middleware(['token-validated', 'check.external.token', 'role:pegawai-aktif'])->group(function () {

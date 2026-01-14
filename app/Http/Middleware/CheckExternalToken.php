@@ -20,7 +20,7 @@ class CheckExternalToken
              ], 401);
          }
 
-         $baseUrl = 'https://gateway.pdamkotasmg.co.id/api-gw-dev/portal-pegawai';
+         $baseUrl = 'https://gateway.pdamkotasmg.co.id/api-gw/portal-pegawai';
 
          $response = Http::withHeaders([
              'Authorization' => $token,
@@ -28,7 +28,6 @@ class CheckExternalToken
 
 
 
-         // ✅ Ambil data user dari struktur 'data.user'
          $userData = $response->json('data.user');
 
          if ($response->failed() || !$userData) {
@@ -38,7 +37,6 @@ class CheckExternalToken
              ], 401);
          }
 
-         // ✅ Simpan data user eksternal di request
          $request->attributes->set('external_user', $userData);
 
 //        $request->attributes->set('external_user', user_login_data());
