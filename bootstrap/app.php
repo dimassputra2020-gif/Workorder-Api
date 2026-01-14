@@ -26,6 +26,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'auth' => \App\Http\Middleware\Authenticate::class,
             'check.external.token' => \App\Http\Middleware\CheckExternalToken::class,
             // 'permission' => \App\Http\Middleware\CheckPermission::class,
+            'providers' => [
+    App\Providers\AppServiceProvider::class,
+],
+
 
             'token-validated' => \Gemboot\Middleware\TokenValidated::class,
             'token-validated-client' => \App\Http\Middleware\TokenValidatedClient::class,
