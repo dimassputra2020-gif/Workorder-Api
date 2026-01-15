@@ -75,7 +75,7 @@ Route::middleware(['check.external.token'])->group(function () {
 Route::middleware(['check.external.token'])->group(function () {
     Route::put('/notifications/update/{id}', [NotifController::class, 'update']);
     Route::get('/notifications/all/{npp}', [NotifController::class, 'getAllNotifications']);
-    Route::put('/notifications/update/all/{npp}', [NotifConttroller::class, 'markAllAsRead']);
+    Route::put('/notifications/update/all/{npp}', [NotifController::class, 'markAllAsRead']);
 });
 
   Route::get('/notifications/{npp}', [NotifController::class, 'getNotifications']);
