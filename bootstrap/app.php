@@ -21,10 +21,6 @@ return Application::configure(basePath: dirname(__DIR__))
 
         ]);
 
-        $middleware->api(prepend: [
-                    \App\Http\Middleware\ForceJsonResponse::class, // Optional
-        ]);
-
         // PENTING: Pastikan CORS middleware terdaftar
         $middleware->validateCsrfTokens(except: [
                     'api/*',
