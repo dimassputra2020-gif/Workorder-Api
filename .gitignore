@@ -29,3 +29,5 @@ supervisord.pid
 frankenphp
 frankenphp-worker.php
 docker-compose.yml
+
+.env.*
